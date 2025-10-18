@@ -17,7 +17,6 @@ import { colors } from '@/styles/commonStyles';
 import { getStockBySymbol, generateDynamicPrediction } from '@/data/mockStockData';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { IconSymbol } from '@/components/IconSymbol';
-import { addToSearchHistory } from '@/utils/searchHistory';
 
 export default function StockDetailScreen() {
   const params = useLocalSearchParams();
@@ -35,10 +34,6 @@ export default function StockDetailScreen() {
     const stock = getStockBySymbol(symbol);
     if (stock) {
       setStockData(stock);
-      // Add to search history when viewing a stock
-      addToSearchHistory(stock.symbol, stock.name).catch(error => {
-        console.error('Error adding to search history:', error);
-      });
     }
   }, [symbol]);
 
