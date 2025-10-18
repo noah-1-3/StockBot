@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { 
   ScrollView, 
@@ -17,13 +17,25 @@ import { colors } from '@/styles/commonStyles';
 import StockCard from '@/components/StockCard';
 import { getWatchlist, searchStocks } from '@/data/mockStockData';
 import { useRouter } from 'expo-router';
+import { getSearchHistory, addToSearchHistory, clearSearchHistory, SearchHistoryItem } from '@/utils/searchHistory';
 
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; sector: string }>>([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
   const router = useRouter();
   const watchlist = getWatchlist();
+
+  // Load search history on mount
+  useEffect(() => {
+    loadSearchHistory();
+  }, []);
+
+  const loadSearchHistory = async () => {
+    const history = await getSearchHistory();
+    setSearchHistory(history);
+  };
 
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
@@ -36,8 +48,13 @@ export default function HomeScreen() {
     }
   };
 
-  const handleStockSelect = (symbol: string) => {
+  const handleStockSelect = async (symbol: string, name: string) => {
     console.log('Stock selected:', symbol);
+    
+    // Add to search history
+    await addToSearchHistory(symbol, name);
+    await loadSearchHistory(); // Reload history to update UI
+    
     setSearchQuery('');
     setSearchResults([]);
     setIsSearchFocused(false);
@@ -50,12 +67,18 @@ export default function HomeScreen() {
     setSearchResults([]);
   };
 
+  const handleClearHistory = async () => {
+    await clearSearchHistory();
+    await loadSearchHistory();
+  };
+
   const filteredWatchlist = watchlist.filter(stock => 
     stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
     stock.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const showSearchResults = isSearchFocused && searchQuery.trim().length > 0 && searchResults.length > 0;
+  const showSearchHistory = isSearchFocused && searchQuery.trim().length === 0 && searchHistory.length > 0;
 
   return (
     <>
@@ -125,7 +148,7 @@ export default function HomeScreen() {
                       styles.searchResultItem,
                       pressed && styles.searchResultItemPressed,
                     ]}
-                    onPress={() => handleStockSelect(stock.symbol)}
+                    onPress={() => handleStockSelect(stock.symbol, stock.name)}
                   >
                     <View style={styles.searchResultIconContainer}>
                       <IconSymbol name="chart.line.uptrend.xyaxis" size={20} color={colors.primary} />
@@ -136,6 +159,36 @@ export default function HomeScreen() {
                     </View>
                     <View style={styles.searchResultSectorBadge}>
                       <Text style={styles.searchResultSector} numberOfLines={1}>{stock.sector}</Text>
+                    </View>
+                    <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {showSearchHistory && (
+              <View style={styles.searchResultsContainer}>
+                <View style={styles.historyHeader}>
+                  <Text style={styles.searchResultsHeader}>Recent Searches</Text>
+                  <Pressable onPress={handleClearHistory}>
+                    <Text style={styles.clearHistoryText}>Clear</Text>
+                  </Pressable>
+                </View>
+                {searchHistory.map((item) => (
+                  <Pressable
+                    key={item.symbol}
+                    style={({ pressed }) => [
+                      styles.searchResultItem,
+                      pressed && styles.searchResultItemPressed,
+                    ]}
+                    onPress={() => handleStockSelect(item.symbol, item.name)}
+                  >
+                    <View style={styles.historyIconContainer}>
+                      <IconSymbol name="clock.fill" size={18} color={colors.textSecondary} />
+                    </View>
+                    <View style={styles.searchResultInfo}>
+                      <Text style={styles.searchResultSymbol}>{item.symbol}</Text>
+                      <Text style={styles.searchResultName} numberOfLines={1}>{item.name}</Text>
                     </View>
                     <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
                   </Pressable>
@@ -293,6 +346,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  clearHistoryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   searchResultItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -310,6 +376,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.textSecondary + '15',
     justifyContent: 'center',
     alignItems: 'center',
   },
