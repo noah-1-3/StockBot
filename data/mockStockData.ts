@@ -24,13 +24,13 @@ const generateHistoricalData = (basePrice: number, volatility: number = 0.02) =>
   return data;
 };
 
-// Generate prediction data for the next 7 days
-const generatePredictionData = (lastPrice: number, trend: number = 0.01) => {
+// Generate prediction data for the next N days
+const generatePredictionData = (lastPrice: number, daysAhead: number = 7, trend: number = 0.01) => {
   const data = [];
   let price = lastPrice;
   const today = new Date();
   
-  for (let i = 1; i <= 7; i++) {
+  for (let i = 1; i <= daysAhead; i++) {
     const date = new Date(today);
     date.setDate(date.getDate() + i);
     
@@ -47,6 +47,40 @@ const generatePredictionData = (lastPrice: number, trend: number = 0.01) => {
   return data;
 };
 
+// Generate dynamic prediction for any stock and date
+export const generateDynamicPrediction = (baseStock: StockData, daysAhead: number): StockData => {
+  console.log('Generating dynamic prediction for', baseStock.symbol, 'days ahead:', daysAhead);
+  
+  // Calculate trend based on recent historical data
+  const recentData = baseStock.historicalData.slice(-10);
+  const avgChange = recentData.reduce((sum, point, idx) => {
+    if (idx === 0) return 0;
+    return sum + (point.price - recentData[idx - 1].price);
+  }, 0) / (recentData.length - 1);
+  
+  const trend = avgChange / baseStock.currentPrice;
+  
+  // Generate new prediction data
+  const predictionData = generatePredictionData(baseStock.currentPrice, daysAhead, trend);
+  const predictedPrice = predictionData[predictionData.length - 1].price;
+  const predictedChange = predictedPrice - baseStock.currentPrice;
+  const predictedChangePercent = (predictedChange / baseStock.currentPrice) * 100;
+  
+  // Calculate confidence based on days ahead (decreases with longer predictions)
+  const baseConfidence = baseStock.confidence || 85;
+  const confidenceDecay = Math.min(30, daysAhead * 0.5);
+  const confidence = Math.max(50, Math.round(baseConfidence - confidenceDecay));
+  
+  return {
+    ...baseStock,
+    predictionData,
+    predictedPrice,
+    predictedChange,
+    predictedChangePercent,
+    confidence,
+  };
+};
+
 export const mockStocks: StockData[] = [
   {
     symbol: 'AAPL',
@@ -60,7 +94,7 @@ export const mockStocks: StockData[] = [
     predictedChangePercent: 3.84,
     confidence: 87,
     historicalData: generateHistoricalData(175, 0.025),
-    predictionData: generatePredictionData(178.45, 0.015),
+    predictionData: generatePredictionData(178.45, 7, 0.015),
   },
   {
     symbol: 'GOOGL',
@@ -74,7 +108,7 @@ export const mockStocks: StockData[] = [
     predictedChangePercent: 3.78,
     confidence: 82,
     historicalData: generateHistoricalData(140, 0.03),
-    predictionData: generatePredictionData(142.80, 0.012),
+    predictionData: generatePredictionData(142.80, 7, 0.012),
   },
   {
     symbol: 'MSFT',
@@ -88,7 +122,7 @@ export const mockStocks: StockData[] = [
     predictedChangePercent: 3.21,
     confidence: 91,
     historicalData: generateHistoricalData(405, 0.02),
-    predictionData: generatePredictionData(412.35, 0.01),
+    predictionData: generatePredictionData(412.35, 7, 0.01),
   },
   {
     symbol: 'TSLA',
@@ -102,7 +136,7 @@ export const mockStocks: StockData[] = [
     predictedChangePercent: 6.63,
     confidence: 75,
     historicalData: generateHistoricalData(245, 0.04),
-    predictionData: generatePredictionData(248.90, 0.02),
+    predictionData: generatePredictionData(248.90, 7, 0.02),
   },
   {
     symbol: 'AMZN',
@@ -116,7 +150,7 @@ export const mockStocks: StockData[] = [
     predictedChangePercent: 4.85,
     confidence: 85,
     historicalData: generateHistoricalData(175, 0.028),
-    predictionData: generatePredictionData(178.25, 0.016),
+    predictionData: generatePredictionData(178.25, 7, 0.016),
   },
   {
     symbol: 'NVDA',
@@ -130,7 +164,7 @@ export const mockStocks: StockData[] = [
     predictedChangePercent: 5.12,
     confidence: 79,
     historicalData: generateHistoricalData(850, 0.035),
-    predictionData: generatePredictionData(875.50, 0.018),
+    predictionData: generatePredictionData(875.50, 7, 0.018),
   },
 ];
 
