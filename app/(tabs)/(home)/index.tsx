@@ -9,20 +9,53 @@ import {
   Platform,
   TextInput,
   Pressable,
+  FlatList,
+  Keyboard,
 } from 'react-native';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import StockCard from '@/components/StockCard';
-import { getWatchlist } from '@/data/mockStockData';
+import { getWatchlist, searchStocks } from '@/data/mockStockData';
+import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; sector: string }>>([]);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const router = useRouter();
   const watchlist = getWatchlist();
 
-  const filteredStocks = watchlist.filter(stock => 
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (text.trim().length > 0) {
+      const results = searchStocks(text, 8);
+      setSearchResults(results);
+      console.log('Search results:', results.length);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  const handleStockSelect = (symbol: string) => {
+    console.log('Stock selected:', symbol);
+    setSearchQuery('');
+    setSearchResults([]);
+    setIsSearchFocused(false);
+    Keyboard.dismiss();
+    router.push(`/stock/${symbol}`);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const filteredWatchlist = watchlist.filter(stock => 
     stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
     stock.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const showSearchResults = isSearchFocused && searchQuery.trim().length > 0 && searchResults.length > 0;
 
   return (
     <>
@@ -42,6 +75,7 @@ export default function HomeScreen() {
             Platform.OS !== 'ios' && styles.contentContainerWithTabBar
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {Platform.OS !== 'ios' && (
             <View style={styles.header}>
@@ -60,19 +94,53 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <View style={styles.searchContainer}>
-            <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search stocks..."
-              placeholderTextColor={colors.textSecondary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery('')}>
-                <IconSymbol name="xmark.circle.fill" size={20} color={colors.textSecondary} />
-              </Pressable>
+          <View style={styles.searchSection}>
+            <View style={[styles.searchContainer, isSearchFocused && styles.searchContainerFocused]}>
+              <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search any US stock..."
+                placeholderTextColor={colors.textSecondary}
+                value={searchQuery}
+                onChangeText={handleSearchChange}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 && (
+                <Pressable onPress={handleClearSearch}>
+                  <IconSymbol name="xmark.circle.fill" size={20} color={colors.textSecondary} />
+                </Pressable>
+              )}
+            </View>
+
+            {showSearchResults && (
+              <View style={styles.searchResultsContainer}>
+                <Text style={styles.searchResultsHeader}>Search Results</Text>
+                {searchResults.map((stock) => (
+                  <Pressable
+                    key={stock.symbol}
+                    style={({ pressed }) => [
+                      styles.searchResultItem,
+                      pressed && styles.searchResultItemPressed,
+                    ]}
+                    onPress={() => handleStockSelect(stock.symbol)}
+                  >
+                    <View style={styles.searchResultIconContainer}>
+                      <IconSymbol name="chart.line.uptrend.xyaxis" size={20} color={colors.primary} />
+                    </View>
+                    <View style={styles.searchResultInfo}>
+                      <Text style={styles.searchResultSymbol}>{stock.symbol}</Text>
+                      <Text style={styles.searchResultName} numberOfLines={1}>{stock.name}</Text>
+                    </View>
+                    <View style={styles.searchResultSectorBadge}>
+                      <Text style={styles.searchResultSector} numberOfLines={1}>{stock.sector}</Text>
+                    </View>
+                    <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
+                  </Pressable>
+                ))}
+              </View>
             )}
           </View>
 
@@ -85,8 +153,8 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {filteredStocks.length > 0 ? (
-              filteredStocks.map((stock) => (
+            {filteredWatchlist.length > 0 ? (
+              filteredWatchlist.map((stock) => (
                 <StockCard
                   key={stock.symbol}
                   symbol={stock.symbol}
@@ -178,6 +246,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  searchSection: {
+    marginBottom: 24,
+    position: 'relative',
+    zIndex: 10,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -185,16 +258,85 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginBottom: 24,
     gap: 12,
     boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.06)',
     elevation: 1,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  searchContainerFocused: {
+    borderColor: colors.primary,
+    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.12)',
+    elevation: 3,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: colors.text,
     padding: 0,
+  },
+  searchResultsContainer: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    marginTop: 8,
+    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.12)',
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  searchResultsHeader: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  searchResultItemPressed: {
+    backgroundColor: colors.primary + '10',
+  },
+  searchResultIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchResultInfo: {
+    flex: 1,
+  },
+  searchResultSymbol: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  searchResultName: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  searchResultSectorBadge: {
+    backgroundColor: colors.highlight + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    maxWidth: 100,
+  },
+  searchResultSector: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.highlight,
   },
   section: {
     marginBottom: 24,
