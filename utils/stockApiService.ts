@@ -2,13 +2,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Finnhub API configuration
-// IMPORTANT: Get your own free API key from https://finnhub.io/
-// The demo key has severe limitations and may not work properly
-const FINNHUB_API_KEY = 'd3s42o1r01qldtrbr3i0d3s42o1r01qldtrbr3ig'; // Updated with user's API key
+const FINNHUB_API_KEY = 'd3s42o1r01qldtrbr3i0d3s42o1r01qldtrbr3ig';
 const FINNHUB_BASE_URL = 'https://finnhub.io/api/v1';
 
 const CACHE_KEY_PREFIX = '@stock_api_cache_';
-const CACHE_DURATION = 300000; // 5 minutes cache (increased from 1 minute to reduce API calls)
+const CACHE_DURATION = 60000; // 1 minute cache for real-time data
 
 interface CachedData<T> {
   data: T;
@@ -92,12 +90,17 @@ export const fetchStockQuote = async (symbol: string): Promise<FinnhubQuote | nu
 
     console.log('🔄 Fetching real-time quote for:', symbol);
     const url = `${FINNHUB_BASE_URL}/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       console.error('❌ Failed to fetch quote:', response.status, response.statusText);
       if (response.status === 429) {
-        console.error('⚠️ API rate limit exceeded! Consider upgrading your Finnhub plan or reducing API calls.');
+        console.error('⚠️ API rate limit exceeded! Consider upgrading your Finnhub plan.');
       } else if (response.status === 401) {
         console.error('⚠️ Invalid API key! Get a free key from https://finnhub.io/');
       }
@@ -106,24 +109,28 @@ export const fetchStockQuote = async (symbol: string): Promise<FinnhubQuote | nu
 
     const data: FinnhubQuote = await response.json();
     
-    // Check if data is valid (Finnhub returns 0 for invalid symbols or when market is closed)
+    // Validate data - Finnhub returns 0 for invalid symbols
+    if (!data || typeof data.c !== 'number') {
+      console.error('❌ Invalid response format for:', symbol);
+      return null;
+    }
+
+    // Check if we got valid price data
     if (data.c === 0 && data.pc === 0) {
-      console.error('❌ Invalid or unavailable quote data for:', symbol);
-      console.log('💡 This could mean: 1) Invalid symbol, 2) Market is closed, 3) API key issue');
+      console.error('❌ No price data available for:', symbol);
       return null;
     }
 
-    // Additional validation
-    if (!data.c || data.c <= 0) {
-      console.error('❌ Invalid price data received for:', symbol);
+    if (data.c <= 0) {
+      console.error('❌ Invalid price data for:', symbol, '- Price:', data.c);
       return null;
     }
 
-    console.log('✅ Successfully fetched quote for:', symbol, '- Price:', data.c);
+    console.log('✅ Successfully fetched quote for:', symbol, '- Price: $' + data.c.toFixed(2));
     await setCachedData(cacheKey, data);
     return data;
   } catch (error) {
-    console.error('❌ Error fetching stock quote:', error);
+    console.error('❌ Error fetching stock quote for', symbol, ':', error);
     return null;
   }
 };
@@ -137,7 +144,12 @@ export const fetchCompanyProfile = async (symbol: string): Promise<FinnhubProfil
 
     console.log('🔄 Fetching company profile for:', symbol);
     const url = `${FINNHUB_BASE_URL}/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       console.error('❌ Failed to fetch profile:', response.status, response.statusText);
@@ -147,7 +159,7 @@ export const fetchCompanyProfile = async (symbol: string): Promise<FinnhubProfil
     const data: FinnhubProfile = await response.json();
     
     // Check if data is valid
-    if (!data.name || Object.keys(data).length === 0) {
+    if (!data || !data.name || Object.keys(data).length === 0) {
       console.error('❌ Invalid profile data for:', symbol);
       return null;
     }
@@ -156,7 +168,7 @@ export const fetchCompanyProfile = async (symbol: string): Promise<FinnhubProfil
     await setCachedData(cacheKey, data);
     return data;
   } catch (error) {
-    console.error('❌ Error fetching company profile:', error);
+    console.error('❌ Error fetching company profile for', symbol, ':', error);
     return null;
   }
 };
@@ -177,7 +189,12 @@ export const fetchHistoricalData = async (
 
     console.log('🔄 Fetching historical data for:', symbol, `(${daysBack} days)`);
     const url = `${FINNHUB_BASE_URL}/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}&token=${FINNHUB_API_KEY}`;
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       console.error('❌ Failed to fetch historical data:', response.status, response.statusText);
@@ -187,8 +204,8 @@ export const fetchHistoricalData = async (
     const data: FinnhubCandle = await response.json();
     
     // Check if data is valid
-    if (data.s !== 'ok' || !data.c || data.c.length === 0) {
-      console.error('❌ Invalid historical data for:', symbol, '- Status:', data.s);
+    if (!data || data.s !== 'ok' || !data.c || data.c.length === 0) {
+      console.error('❌ Invalid historical data for:', symbol, '- Status:', data?.s);
       return null;
     }
 
@@ -196,7 +213,7 @@ export const fetchHistoricalData = async (
     await setCachedData(cacheKey, data);
     return data;
   } catch (error) {
-    console.error('❌ Error fetching historical data:', error);
+    console.error('❌ Error fetching historical data for', symbol, ':', error);
     return null;
   }
 };
@@ -214,7 +231,12 @@ export const searchStocksAPI = async (query: string): Promise<Array<{ symbol: st
 
     console.log('🔍 Searching stocks with query:', query);
     const url = `${FINNHUB_BASE_URL}/search?q=${encodeURIComponent(query)}&token=${FINNHUB_API_KEY}`;
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       console.error('❌ Failed to search stocks:', response.status, response.statusText);
@@ -228,7 +250,7 @@ export const searchStocksAPI = async (query: string): Promise<Array<{ symbol: st
     const usStocks = results.filter((item: any) => 
       item.type === 'Common Stock' && 
       !item.symbol.includes('.') &&
-      item.symbol.length <= 5 // Most US tickers are 1-5 characters
+      item.symbol.length <= 5
     ).slice(0, 10);
 
     console.log('✅ Found', usStocks.length, 'US stocks matching:', query);
@@ -245,21 +267,27 @@ export const checkAPIAvailability = async (): Promise<boolean> => {
   try {
     console.log('🔍 Checking API availability...');
     const response = await fetch(
-      `${FINNHUB_BASE_URL}/quote?symbol=AAPL&token=${FINNHUB_API_KEY}`
+      `${FINNHUB_BASE_URL}/quote?symbol=AAPL&token=${FINNHUB_API_KEY}`,
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      }
     );
     
     if (!response.ok) {
-      console.error('❌ API not available:', response.status);
+      console.error('❌ API not available:', response.status, response.statusText);
       return false;
     }
 
     const data = await response.json();
-    const isValid = data.c > 0;
+    const isValid = data && typeof data.c === 'number' && data.c > 0;
     
     if (isValid) {
-      console.log('✅ API is working correctly');
+      console.log('✅ API is working correctly - AAPL price: $' + data.c.toFixed(2));
     } else {
-      console.error('⚠️ API responded but returned invalid data');
+      console.error('⚠️ API responded but returned invalid data:', data);
     }
     
     return isValid;
