@@ -12,7 +12,6 @@ interface StockCardProps {
   change: number;
   changePercent: number;
   predictedChange: number;
-  isRealData?: boolean;
 }
 
 const StockCard: React.FC<StockCardProps> = ({
@@ -22,7 +21,6 @@ const StockCard: React.FC<StockCardProps> = ({
   change,
   changePercent,
   predictedChange,
-  isRealData = false,
 }) => {
   const router = useRouter();
   const isPositive = change >= 0;
@@ -43,11 +41,10 @@ const StockCard: React.FC<StockCardProps> = ({
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Text style={styles.symbol}>{symbol}</Text>
-          {!isRealData && (
-            <View style={styles.simulatedBadge}>
-              <Text style={styles.simulatedText}>SIM</Text>
-            </View>
-          )}
+          <View style={styles.realTimeBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.realTimeText}>LIVE</Text>
+          </View>
         </View>
         <Text style={styles.name} numberOfLines={1}>{name}</Text>
       </View>
@@ -117,18 +114,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  simulatedBadge: {
-    backgroundColor: colors.warning + '20',
+  realTimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '20',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: colors.warning,
+    borderColor: colors.success,
+    gap: 4,
   },
-  simulatedText: {
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.success,
+  },
+  realTimeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.warning,
+    color: colors.success,
   },
   name: {
     fontSize: 14,

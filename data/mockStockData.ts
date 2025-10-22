@@ -1,32 +1,8 @@
 
 import { StockData, WatchlistItem } from '@/types/stock';
-import { getDailyVariation, getEnhancedDailyVariation } from '@/utils/stockUpdateService';
 import { fetchStockQuote, fetchHistoricalData, fetchCompanyProfile, searchStocksAPI, checkAPIAvailability } from '@/utils/stockApiService';
 
-// Generate mock historical data for the past 30 days (fallback only)
-const generateHistoricalData = (basePrice: number, volatility: number = 0.02) => {
-  const data = [];
-  let price = basePrice;
-  const today = new Date();
-  
-  for (let i = 30; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    
-    // Random walk with slight upward bias
-    const change = (Math.random() - 0.48) * volatility * price;
-    price = Math.max(price + change, basePrice * 0.7);
-    
-    data.push({
-      date: date.toISOString().split('T')[0],
-      price: parseFloat(price.toFixed(2)),
-    });
-  }
-  
-  return data;
-};
-
-// Generate prediction data for the next N days
+// Generate prediction data for the next N days based on historical trends
 const generatePredictionData = (lastPrice: number, daysAhead: number = 7, trend: number = 0.01) => {
   const data = [];
   let price = lastPrice;
@@ -198,7 +174,7 @@ export const getCompanyDescription = (symbol: string): string => {
   return stock?.description || 'No description available.';
 };
 
-// Fetch real stock data from API with retry logic
+// Fetch real stock data from API - NO FALLBACK TO SIMULATED DATA
 const fetchRealStockData = async (symbol: string, name: string, sector: string): Promise<StockData | null> => {
   try {
     console.log('📊 Fetching REAL-TIME stock data for:', symbol);
@@ -209,14 +185,14 @@ const fetchRealStockData = async (symbol: string, name: string, sector: string):
       fetchHistoricalData(symbol, 'D', 30)
     ]);
 
-    // If either fails, return null to trigger fallback
+    // If either fails, return null - NO FALLBACK
     if (!quote) {
-      console.log('⚠️ Failed to fetch quote for:', symbol);
+      console.error('❌ Failed to fetch real-time quote for:', symbol);
       return null;
     }
 
     if (!historicalCandles) {
-      console.log('⚠️ Failed to fetch historical data for:', symbol);
+      console.error('❌ Failed to fetch real-time historical data for:', symbol);
       return null;
     }
 
@@ -266,61 +242,25 @@ const fetchRealStockData = async (symbol: string, name: string, sector: string):
       isRealData: true,
     };
   } catch (error) {
-    console.error('❌ Error fetching real stock data for', symbol, ':', error);
+    console.error('❌ Error fetching real-time stock data for', symbol, ':', error);
     return null;
   }
 };
 
-// Generate stock data dynamically with real API data
-const generateStockData = async (symbol: string, name: string, basePrice: number, sector: string): Promise<StockData> => {
-  // Try to fetch real data first
+// Generate stock data - ONLY REAL-TIME, NO SIMULATED FALLBACK
+const generateStockData = async (symbol: string, name: string, basePrice: number, sector: string): Promise<StockData | null> => {
+  console.log('🔄 Fetching real-time data for:', symbol);
   const realData = await fetchRealStockData(symbol, name, sector);
-  if (realData) {
-    return realData;
+  
+  if (!realData) {
+    console.error('❌ Unable to fetch real-time data for:', symbol);
+    console.error('⚠️  Stock will not be available until API connection is restored');
   }
-
-  // Fallback to simulated data if API fails
-  console.log('⚠️ Using SIMULATED data for:', symbol, '(Real-time data unavailable)');
-  const stockInfo = allUSStocks.find(s => s.symbol === symbol);
-  const stockSector = stockInfo?.sector || sector;
   
-  // Apply enhanced daily variation to base price
-  const dailyVariation = getEnhancedDailyVariation(symbol, stockSector);
-  const adjustedBasePrice = basePrice * dailyVariation;
-  
-  const volatility = 0.02 + Math.random() * 0.02;
-  const historicalData = generateHistoricalData(adjustedBasePrice, volatility);
-  const currentPrice = historicalData[historicalData.length - 1].price;
-  const previousClose = historicalData[historicalData.length - 2].price;
-  const change = currentPrice - previousClose;
-  const changePercent = (change / previousClose) * 100;
-  
-  const trend = 0.005 + Math.random() * 0.015;
-  const predictionData = generatePredictionData(currentPrice, 7, trend);
-  const predictedPrice = predictionData[predictionData.length - 1].price;
-  const predictedChange = predictedPrice - currentPrice;
-  const predictedChangePercent = (predictedChange / currentPrice) * 100;
-  
-  const confidence = Math.round(75 + Math.random() * 20);
-  
-  return {
-    symbol,
-    name,
-    currentPrice: parseFloat(currentPrice.toFixed(2)),
-    previousClose: parseFloat(previousClose.toFixed(2)),
-    change: parseFloat(change.toFixed(2)),
-    changePercent: parseFloat(changePercent.toFixed(2)),
-    predictedPrice: parseFloat(predictedPrice.toFixed(2)),
-    predictedChange: parseFloat(predictedChange.toFixed(2)),
-    predictedChangePercent: parseFloat(predictedChangePercent.toFixed(2)),
-    confidence,
-    historicalData,
-    predictionData,
-    isRealData: false,
-  };
+  return realData;
 };
 
-// Generate initial mock stocks with real API data
+// Generate initial stocks with ONLY real API data
 const generateMockStocks = async (): Promise<StockData[]> => {
   const topStocks = [
     { symbol: 'AAPL', name: 'Apple Inc.', basePrice: 178.45, sector: 'Technology' },
@@ -333,19 +273,25 @@ const generateMockStocks = async (): Promise<StockData[]> => {
   
   console.log('🚀 Fetching real-time data for watchlist stocks...');
   const stockPromises = topStocks.map(stock => generateStockData(stock.symbol, stock.name, stock.basePrice, stock.sector));
-  const stocks = await Promise.all(stockPromises);
+  const stockResults = await Promise.all(stockPromises);
   
-  const realCount = stocks.filter(s => s.isRealData).length;
-  const simulatedCount = stocks.length - realCount;
+  // Filter out null results (failed API calls)
+  const stocks = stockResults.filter((stock): stock is StockData => stock !== null);
+  
+  const successCount = stocks.length;
+  const failedCount = topStocks.length - successCount;
   
   console.log('📊 Watchlist loaded:');
-  console.log(`   ✅ Real-time data: ${realCount} stocks`);
-  console.log(`   ⚠️ Simulated data: ${simulatedCount} stocks`);
+  console.log(`   ✅ Real-time data: ${successCount} stocks`);
+  if (failedCount > 0) {
+    console.error(`   ❌ Failed to load: ${failedCount} stocks`);
+    console.error('   ⚠️  Check your internet connection and API key');
+  }
   
   return stocks;
 };
 
-// Initialize with real data
+// Initialize with real data only
 let mockStocks: StockData[] = [];
 let apiAvailable: boolean | null = null;
 
@@ -354,14 +300,14 @@ export const checkAPIStatus = async (): Promise<boolean> => {
   if (apiAvailable === null) {
     apiAvailable = await checkAPIAvailability();
     if (!apiAvailable) {
-      console.log('⚠️ ========================================');
-      console.log('⚠️ FINNHUB API IS NOT AVAILABLE');
-      console.log('⚠️ Using simulated stock data');
-      console.log('⚠️ To get real data:');
-      console.log('⚠️ 1. Check your internet connection');
-      console.log('⚠️ 2. Verify API key is valid');
-      console.log('⚠️ 3. Get a free API key from https://finnhub.io/');
-      console.log('⚠️ ========================================');
+      console.error('❌ ========================================');
+      console.error('❌ FINNHUB API IS NOT AVAILABLE');
+      console.error('❌ Real-time stock data cannot be loaded');
+      console.error('❌ To fix this:');
+      console.error('❌ 1. Check your internet connection');
+      console.error('❌ 2. Verify API key is valid');
+      console.error('❌ 3. Get a free API key from https://finnhub.io/');
+      console.error('❌ ========================================');
     } else {
       console.log('✅ ========================================');
       console.log('✅ FINNHUB API IS AVAILABLE');
@@ -376,8 +322,18 @@ export const checkAPIStatus = async (): Promise<boolean> => {
 export const initializeStocks = async (): Promise<StockData[]> => {
   if (mockStocks.length === 0) {
     console.log('🚀 Initializing stocks with real-time data...');
-    await checkAPIStatus();
+    const isApiAvailable = await checkAPIStatus();
+    
+    if (!isApiAvailable) {
+      console.error('⚠️  Cannot initialize stocks - API unavailable');
+      return [];
+    }
+    
     mockStocks = await generateMockStocks();
+    
+    if (mockStocks.length === 0) {
+      console.error('❌ Failed to load any stocks - check API connection');
+    }
   }
   return mockStocks;
 };
@@ -395,14 +351,21 @@ export const getStockBySymbol = async (symbol: string): Promise<StockData | unde
     return mockStock;
   }
   
-  // Otherwise, generate it dynamically from the all stocks list
+  // Otherwise, fetch it dynamically from the API
   const stockInfo = allUSStocks.find(stock => stock.symbol === symbol);
   if (stockInfo) {
-    console.log('🔄 Fetching data for:', symbol);
-    return await generateStockData(stockInfo.symbol, stockInfo.name, stockInfo.basePrice, stockInfo.sector);
+    console.log('🔄 Fetching real-time data for:', symbol);
+    const stockData = await generateStockData(stockInfo.symbol, stockInfo.name, stockInfo.basePrice, stockInfo.sector);
+    
+    if (!stockData) {
+      console.error('❌ Failed to fetch real-time data for:', symbol);
+      return undefined;
+    }
+    
+    return stockData;
   }
   
-  console.log('❌ Stock not found:', symbol);
+  console.error('❌ Stock not found:', symbol);
   return undefined;
 };
 
@@ -439,11 +402,11 @@ export const searchStocks = async (query: string, limit: number = 10): Promise<A
       })).slice(0, limit);
     }
   } catch (error) {
-    console.error('❌ API search failed, falling back to local search:', error);
+    console.error('❌ API search failed:', error);
   }
   
-  // Fallback to local search
-  console.log('⚠️ Using local search (API unavailable)');
+  // Fallback to local search if API fails
+  console.log('⚠️  Using local search (API unavailable)');
   const results = allUSStocks.filter(stock => 
     stock.symbol.toLowerCase().includes(searchTerm) ||
     stock.name.toLowerCase().includes(searchTerm)

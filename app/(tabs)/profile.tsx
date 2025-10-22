@@ -57,13 +57,13 @@ const ProfileScreen = () => {
             </View>
           </View>
           <Text style={styles.appDescription}>
-            AI-powered stock prediction app that analyzes historical data and market trends to forecast future stock movements.
+            AI-powered stock prediction app using real-time market data from Finnhub API to analyze trends and forecast future stock movements.
           </Text>
         </View>
 
         {/* API Status */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data Source Status</Text>
+          <Text style={styles.sectionTitle}>Real-Time Data Status</Text>
           {apiStatus && (
             <View style={[
               styles.statusCard,
@@ -85,7 +85,7 @@ const ProfileScreen = () => {
         {/* Setup Guide */}
         {apiStatus && !apiStatus.isAvailable && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Get Real-Time Stock Data</Text>
+            <Text style={styles.sectionTitle}>Setup Real-Time Stock Data</Text>
             <View style={styles.guideCard}>
               <View style={styles.guideStep}>
                 <View style={styles.stepNumber}>
@@ -129,7 +129,7 @@ const ProfileScreen = () => {
                   </Text>
                   <View style={styles.codeBlock}>
                     <Text style={styles.codeText}>
-                      const FINNHUB_API_KEY = 'your_api_key_here';
+                      const FINNHUB_API_KEY = &apos;your_api_key_here&apos;;
                     </Text>
                   </View>
                 </View>
@@ -153,6 +153,22 @@ const ProfileScreen = () => {
               <Text style={styles.infoText}>
                 The free tier includes 60 API calls per minute, which is sufficient for personal use.
               </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Real-Time Data Info */}
+        {apiStatus && apiStatus.isAvailable && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Real-Time Data</Text>
+            <View style={styles.realTimeInfoCard}>
+              <IconSymbol name="bolt.fill" size={24} color={colors.success} />
+              <View style={styles.realTimeInfoContent}>
+                <Text style={styles.realTimeInfoTitle}>Live Market Data Active</Text>
+                <Text style={styles.realTimeInfoText}>
+                  All stock prices and data are fetched in real-time from Finnhub API. No simulated or mock data is used.
+                </Text>
+              </View>
             </View>
           </View>
         )}
@@ -192,10 +208,15 @@ const ProfileScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <Text style={styles.aboutText}>
-            StockBot uses advanced machine learning algorithms to analyze historical stock data, 
+            StockBot uses advanced machine learning algorithms to analyze real-time stock data, 
             market trends, and various financial indicators to generate predictions about future 
-            stock prices. The AI model considers factors such as price volatility, sector 
-            correlations, and market sentiment to provide accurate forecasts.
+            stock prices. The AI model considers factors such as price volatility, historical 
+            patterns, and market sentiment to provide accurate forecasts.
+          </Text>
+          <Text style={styles.aboutText}>
+            All stock data is fetched in real-time from Finnhub API, ensuring you always have 
+            access to the latest market information. The app does not use any simulated or 
+            mock data.
           </Text>
           <Text style={styles.aboutText}>
             Please note that stock predictions are for informational purposes only and should 
@@ -395,6 +416,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  realTimeInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.success + '10',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.success + '30',
+  },
+  realTimeInfoContent: {
+    flex: 1,
+  },
+  realTimeInfoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  realTimeInfoText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   featureList: {
     gap: 12,

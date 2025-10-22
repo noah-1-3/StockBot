@@ -93,7 +93,7 @@ const StockDetailScreen = () => {
       <View style={styles.loadingContainer}>
         <Stack.Screen options={{ title: symbol }} />
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading stock details...</Text>
+        <Text style={styles.loadingText}>Loading real-time stock data...</Text>
       </View>
     );
   }
@@ -103,7 +103,10 @@ const StockDetailScreen = () => {
       <View style={styles.errorContainer}>
         <Stack.Screen options={{ title: 'Error' }} />
         <IconSymbol name="exclamationmark.triangle" size={48} color={colors.error} />
-        <Text style={styles.errorText}>Stock not found</Text>
+        <Text style={styles.errorText}>Unable to load real-time data for {symbol}</Text>
+        <Text style={styles.errorSubtext}>
+          Please check your internet connection and API key
+        </Text>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </Pressable>
@@ -143,11 +146,10 @@ const StockDetailScreen = () => {
           <View style={styles.headerTop}>
             <View style={styles.titleContainer}>
               <Text style={styles.symbol}>{stock.symbol}</Text>
-              {!stock.isRealData && (
-                <View style={styles.simulatedBadge}>
-                  <Text style={styles.simulatedText}>SIMULATED</Text>
-                </View>
-              )}
+              <View style={styles.realTimeBadge}>
+                <View style={styles.liveDot} />
+                <Text style={styles.realTimeText}>LIVE</Text>
+              </View>
             </View>
             <Text style={styles.name}>{stock.name}</Text>
           </View>
@@ -167,23 +169,16 @@ const StockDetailScreen = () => {
           </View>
         </View>
 
-        {/* Data Source Info */}
-        {stock.isRealData ? (
-          <View style={styles.dataSourceCard}>
-            <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
-            <Text style={styles.dataSourceText}>Real-time market data</Text>
+        {/* Real-time Data Source Info */}
+        <View style={styles.dataSourceCard}>
+          <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+          <View style={styles.dataSourceTextContainer}>
+            <Text style={styles.dataSourceText}>Real-time market data from Finnhub</Text>
+            <Text style={styles.dataSourceSubtext}>
+              Updated live during market hours
+            </Text>
           </View>
-        ) : (
-          <View style={[styles.dataSourceCard, styles.dataSourceWarning]}>
-            <IconSymbol name="exclamationmark.triangle.fill" size={20} color={colors.warning} />
-            <View style={styles.dataSourceTextContainer}>
-              <Text style={styles.dataSourceText}>Simulated data for demonstration</Text>
-              <Text style={styles.dataSourceSubtext}>
-                Get a free API key from finnhub.io for real-time data
-              </Text>
-            </View>
-          </View>
-        )}
+        </View>
 
         {/* Chart */}
         <View style={styles.chartContainer}>
@@ -401,6 +396,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.text,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   backButton: {
     backgroundColor: colors.primary,
@@ -438,18 +439,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  simulatedBadge: {
-    backgroundColor: colors.warning + '20',
+  realTimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '20',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: colors.warning,
+    borderColor: colors.success,
+    gap: 4,
   },
-  simulatedText: {
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.success,
+  },
+  realTimeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.warning,
+    color: colors.success,
   },
   name: {
     fontSize: 18,
@@ -499,10 +509,6 @@ const styles = StyleSheet.create({
     gap: 10,
     borderWidth: 1,
     borderColor: colors.success + '30',
-  },
-  dataSourceWarning: {
-    backgroundColor: colors.warning + '10',
-    borderColor: colors.warning + '30',
   },
   dataSourceTextContainer: {
     flex: 1,

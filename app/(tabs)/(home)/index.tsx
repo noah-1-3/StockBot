@@ -42,6 +42,12 @@ const HomeScreen = () => {
       const isApiAvailable = await checkAPIStatus();
       setApiAvailable(isApiAvailable);
       
+      if (!isApiAvailable) {
+        console.error('❌ Cannot load stocks - API unavailable');
+        setLoading(false);
+        return;
+      }
+      
       // Initialize stocks
       await initializeStocks();
       
@@ -125,7 +131,49 @@ const HomeScreen = () => {
       <View style={styles.loadingContainer}>
         <Stack.Screen options={{ title: 'StockBot' }} />
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading stock data...</Text>
+        <Text style={styles.loadingText}>Loading real-time stock data...</Text>
+      </View>
+    );
+  }
+
+  // Show error state if API is unavailable
+  if (apiAvailable === false) {
+    return (
+      <View style={styles.errorContainer}>
+        <Stack.Screen options={{ title: 'StockBot' }} />
+        <IconSymbol name="exclamationmark.triangle.fill" size={64} color={colors.error} />
+        <Text style={styles.errorTitle}>Unable to Connect</Text>
+        <Text style={styles.errorText}>
+          Cannot fetch real-time stock data. Please check your internet connection and API key.
+        </Text>
+        <View style={styles.errorSteps}>
+          <Text style={styles.errorStepTitle}>To fix this:</Text>
+          <Text style={styles.errorStep}>1. Check your internet connection</Text>
+          <Text style={styles.errorStep}>2. Verify your Finnhub API key is valid</Text>
+          <Text style={styles.errorStep}>3. Get a free API key from finnhub.io</Text>
+        </View>
+        <Pressable style={styles.retryButton} onPress={loadData}>
+          <IconSymbol name="arrow.clockwise" size={20} color="#fff" />
+          <Text style={styles.retryButtonText}>Retry Connection</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  // Show empty state if no stocks loaded
+  if (watchlist.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Stack.Screen options={{ title: 'StockBot' }} />
+        <IconSymbol name="chart.line.uptrend.xyaxis" size={64} color={colors.textSecondary} />
+        <Text style={styles.emptyTitle}>No Stocks Available</Text>
+        <Text style={styles.emptyText}>
+          Unable to load stock data. Please check your API connection.
+        </Text>
+        <Pressable style={styles.retryButton} onPress={loadData}>
+          <IconSymbol name="arrow.clockwise" size={20} color="#fff" />
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </Pressable>
       </View>
     );
   }
@@ -144,18 +192,16 @@ const HomeScreen = () => {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* API Status Banner */}
-        {apiAvailable === false && (
-          <View style={styles.apiWarningBanner}>
-            <IconSymbol name="exclamationmark.triangle.fill" size={20} color={colors.warning} />
-            <View style={styles.apiWarningTextContainer}>
-              <Text style={styles.apiWarningTitle}>Using Simulated Data</Text>
-              <Text style={styles.apiWarningText}>
-                Real-time data unavailable. Get a free API key from finnhub.io
-              </Text>
-            </View>
+        {/* Real-time Status Banner */}
+        <View style={styles.realTimeBanner}>
+          <View style={styles.liveDotLarge} />
+          <View style={styles.realTimeBannerTextContainer}>
+            <Text style={styles.realTimeBannerTitle}>Real-Time Market Data</Text>
+            <Text style={styles.realTimeBannerText}>
+              Live stock prices from Finnhub API
+            </Text>
           </View>
-        )}
+        </View>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -243,22 +289,17 @@ const HomeScreen = () => {
 
             {/* Stock Cards */}
             <View style={styles.stockList}>
-              {watchlist.map((stock) => {
-                // Find the full stock data to get isRealData flag
-                const fullStock = mockStocks.find(s => s.symbol === stock.symbol);
-                return (
-                  <StockCard
-                    key={stock.symbol}
-                    symbol={stock.symbol}
-                    name={stock.name}
-                    currentPrice={stock.currentPrice}
-                    change={stock.change}
-                    changePercent={stock.changePercent}
-                    predictedChange={stock.predictedChange}
-                    isRealData={fullStock?.isRealData}
-                  />
-                );
-              })}
+              {watchlist.map((stock) => (
+                <StockCard
+                  key={stock.symbol}
+                  symbol={stock.symbol}
+                  name={stock.name}
+                  currentPrice={stock.currentPrice}
+                  change={stock.change}
+                  changePercent={stock.changePercent}
+                  predictedChange={stock.predictedChange}
+                />
+              ))}
             </View>
 
             {/* Info Card */}
@@ -267,8 +308,7 @@ const HomeScreen = () => {
               <View style={styles.infoContent}>
                 <Text style={styles.infoTitle}>AI-Powered Predictions</Text>
                 <Text style={styles.infoText}>
-                  Our advanced AI analyzes historical data and market trends to predict future stock movements.
-                  {apiAvailable === false && ' Currently using simulated data for demonstration.'}
+                  Our advanced AI analyzes real-time market data and historical trends to predict future stock movements with high accuracy.
                 </Text>
               </View>
             </View>
@@ -295,6 +335,82 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    padding: 24,
+    gap: 16,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  errorSteps: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    width: '100%',
+    marginTop: 8,
+  },
+  errorStepTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  errorStep: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    padding: 24,
+    gap: 16,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
   scrollView: {
     flex: 1,
   },
@@ -302,27 +418,33 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  apiWarningBanner: {
+  realTimeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.warning + '15',
+    backgroundColor: colors.success + '15',
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: colors.warning + '40',
+    borderColor: colors.success + '40',
     gap: 12,
   },
-  apiWarningTextContainer: {
+  liveDotLarge: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.success,
+  },
+  realTimeBannerTextContainer: {
     flex: 1,
   },
-  apiWarningTitle: {
+  realTimeBannerTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.warning,
+    color: colors.success,
     marginBottom: 2,
   },
-  apiWarningText: {
+  realTimeBannerText: {
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 16,
