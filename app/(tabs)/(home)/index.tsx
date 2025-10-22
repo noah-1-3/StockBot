@@ -1,8 +1,6 @@
 
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import React, { useState, useEffect } from 'react';
-import { getWatchlist, searchStocks } from '@/data/mockStockData';
 import { 
   ScrollView, 
   StyleSheet, 
@@ -14,80 +12,97 @@ import {
   Keyboard,
   ActivityIndicator,
 } from 'react-native';
+import { checkIfNeedsUpdate, markAsUpdated, getLastUpdateTime, forceRefresh, isMarketHours } from '@/utils/stockUpdateService';
+import { getWatchlist, searchStocks, initializeStocks } from '@/data/mockStockData';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import StockCard from '@/components/StockCard';
 import { Stack } from 'expo-router';
-import { checkIfNeedsUpdate, markAsUpdated, getLastUpdateTime, forceRefresh, isMarketHours } from '@/utils/stockUpdateService';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const [watchlist, setWatchlist] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; sector: string }>>([]);
-  const [watchlist, setWatchlist] = useState(getWatchlist());
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [lastUpdate, setLastUpdate] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [marketOpen, setMarketOpen] = useState(isMarketHours());
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Check for updates on mount
   useEffect(() => {
     checkForUpdates();
-    
-    // Check market hours every minute
-    const interval = setInterval(() => {
-      setMarketOpen(isMarketHours());
-    }, 60000);
-    
-    return () => clearInterval(interval);
   }, []);
 
   const checkForUpdates = async () => {
-    console.log('Checking for stock data updates...');
-    const updateInfo = await checkIfNeedsUpdate();
-    
-    if (updateInfo.needsUpdate) {
-      console.log('Stock data needs update, refreshing...');
-      await markAsUpdated();
-      // Reload watchlist with new data
-      setWatchlist(getWatchlist());
+    try {
+      setIsLoading(true);
+      console.log('Checking for stock updates...');
+      
+      // Initialize stocks with real data
+      await initializeStocks();
+      
+      const updateInfo = await checkIfNeedsUpdate();
+      console.log('Update info:', updateInfo);
+      
+      if (updateInfo.needsUpdate) {
+        console.log('Stock data needs update, marking as updated');
+        await markAsUpdated();
+      }
+      
+      const lastUpdateTime = await getLastUpdateTime();
+      setLastUpdate(lastUpdateTime);
+      console.log('Last update time:', lastUpdateTime);
+      
+      // Load watchlist
+      const list = await getWatchlist();
+      setWatchlist(list);
+      console.log('Loaded watchlist with', list.length, 'stocks');
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+    } finally {
+      setIsLoading(false);
     }
-    
-    const lastUpdateStr = await getLastUpdateTime();
-    setLastUpdate(lastUpdateStr);
-    console.log('Last update:', lastUpdateStr);
   };
 
   const handleManualRefresh = async () => {
-    setIsRefreshing(true);
-    console.log('Manual refresh triggered');
-    
-    await forceRefresh();
-    
-    // Reload the page to get fresh data
-    setWatchlist(getWatchlist());
-    
-    const lastUpdateStr = await getLastUpdateTime();
-    setLastUpdate(lastUpdateStr);
-    
-    setTimeout(() => {
+    try {
+      setIsRefreshing(true);
+      console.log('Manual refresh triggered');
+      await forceRefresh();
+      await checkForUpdates();
+    } catch (error) {
+      console.error('Error during manual refresh:', error);
+    } finally {
       setIsRefreshing(false);
-    }, 500);
+    }
   };
 
-  const handleSearchChange = (text: string) => {
+  const handleSearchChange = async (text: string) => {
     setSearchQuery(text);
     
-    if (text.trim().length > 0) {
-      const results = searchStocks(text);
+    if (text.trim().length === 0) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    try {
+      const results = await searchStocks(text, 10);
+      console.log('Search results:', results);
       setSearchResults(results);
-    } else {
+    } catch (error) {
+      console.error('Error searching stocks:', error);
       setSearchResults([]);
     }
   };
 
   const handleStockSelect = (symbol: string) => {
-    console.log('Selected stock:', symbol);
+    console.log('Stock selected:', symbol);
     setSearchQuery('');
     setSearchResults([]);
+    setIsSearching(false);
     Keyboard.dismiss();
     router.push(`/stock/${symbol}`);
   };
@@ -95,8 +110,12 @@ export default function HomeScreen() {
   const handleClearSearch = () => {
     setSearchQuery('');
     setSearchResults([]);
+    setIsSearching(false);
     Keyboard.dismiss();
   };
+
+  const marketStatus = isMarketHours() ? 'Market Open' : 'Market Closed';
+  const marketStatusColor = isMarketHours() ? colors.success : colors.textSecondary;
 
   return (
     <>
@@ -111,52 +130,14 @@ export default function HomeScreen() {
           headerShadowVisible: false,
         }}
       />
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Stock Predictions</Text>
-          <Text style={styles.subtitle}>AI-powered market insights</Text>
-          
-          <View style={styles.sourceContainer}>
-            <View style={styles.sourceHeader}>
-              <IconSymbol name="chart.bar.doc.horizontal" size={16} color={colors.primary} style={styles.sourceIcon} />
-              <Text style={styles.sourceTitle}>Enhanced Market Simulation</Text>
-            </View>
-            <Text style={styles.sourceText}>
-              Stock prices use advanced algorithms that simulate real market behavior including sector correlations, volatility patterns, trend persistence, and market sentiment. Data updates daily with realistic price movements based on market hours and trading patterns.
-            </Text>
-            <View style={styles.marketStatusContainer}>
-              <View style={[styles.marketStatusDot, { backgroundColor: marketOpen ? colors.success : colors.textSecondary }]} />
-              <Text style={styles.marketStatusText}>
-                Market {marketOpen ? 'Open' : 'Closed'} • Updates every 24 hours
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.updateContainer}>
-            <View style={styles.updateInfo}>
-              <IconSymbol name="clock" size={14} color={colors.textSecondary} style={styles.clockIcon} />
-              <Text style={styles.updateText}>Updated {lastUpdate}</Text>
-            </View>
-            <Pressable 
-              onPress={handleManualRefresh}
-              style={styles.refreshButton}
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <IconSymbol name="arrow.clockwise" size={18} color={colors.primary} />
-              )}
-            </Pressable>
-          </View>
-        </View>
-
+      <View style={styles.container}>
+        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+            <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search stocks (e.g., AAPL, Tesla)"
+              placeholder="Search stocks..."
               placeholderTextColor={colors.textSecondary}
               value={searchQuery}
               onChangeText={handleSearchChange}
@@ -164,60 +145,120 @@ export default function HomeScreen() {
               autoCorrect={false}
             />
             {searchQuery.length > 0 && (
-              <Pressable onPress={handleClearSearch} style={styles.clearButton}>
+              <Pressable onPress={handleClearSearch}>
                 <IconSymbol name="xmark.circle.fill" size={20} color={colors.textSecondary} />
               </Pressable>
             )}
           </View>
+        </View>
 
-          {searchResults.length > 0 && (
-            <View style={styles.searchResults}>
+        {/* Search Results Overlay */}
+        {isSearching && searchResults.length > 0 && (
+          <View style={styles.searchResultsContainer}>
+            <ScrollView style={styles.searchResults} keyboardShouldPersistTaps="handled">
               {searchResults.map((result) => (
                 <Pressable
                   key={result.symbol}
                   style={styles.searchResultItem}
                   onPress={() => handleStockSelect(result.symbol)}
                 >
-                  <View style={styles.searchResultLeft}>
+                  <View>
                     <Text style={styles.searchResultSymbol}>{result.symbol}</Text>
-                    <Text style={styles.searchResultName} numberOfLines={1}>
-                      {result.name}
-                    </Text>
+                    <Text style={styles.searchResultName}>{result.name}</Text>
                   </View>
-                  <View style={styles.searchResultRight}>
-                    <Text style={styles.searchResultSector}>{result.sector}</Text>
-                    <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
-                  </View>
+                  <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
                 </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Main Content */}
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Section */}
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={styles.title}>Stock Predictions</Text>
+                <Text style={styles.subtitle}>AI-powered market insights</Text>
+              </View>
+              <Pressable 
+                style={styles.refreshButton}
+                onPress={handleManualRefresh}
+                disabled={isRefreshing}
+              >
+                {isRefreshing ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <IconSymbol name="arrow.clockwise" size={24} color={colors.primary} />
+                )}
+              </Pressable>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <View style={styles.infoItem}>
+                <IconSymbol name="clock" size={16} color={colors.textSecondary} />
+                <Text style={styles.infoText}>Updated {lastUpdate}</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <View style={[styles.statusDot, { backgroundColor: marketStatusColor }]} />
+                <Text style={[styles.infoText, { color: marketStatusColor }]}>{marketStatus}</Text>
+              </View>
+            </View>
+
+            <View style={styles.dataSourceBanner}>
+              <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
+              <Text style={styles.dataSourceText}>
+                Real-time data from Finnhub API
+              </Text>
+            </View>
+          </View>
+
+          {/* Loading State */}
+          {isLoading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading real-time stock data...</Text>
+            </View>
+          )}
+
+          {/* Watchlist */}
+          {!isLoading && watchlist.length > 0 && (
+            <View style={styles.watchlistSection}>
+              <Text style={styles.sectionTitle}>Your Watchlist</Text>
+              {watchlist.map((stock) => (
+                <StockCard
+                  key={stock.symbol}
+                  symbol={stock.symbol}
+                  name={stock.name}
+                  currentPrice={stock.currentPrice}
+                  change={stock.change}
+                  changePercent={stock.changePercent}
+                  predictedChange={stock.predictedChange}
+                />
               ))}
             </View>
           )}
-        </View>
 
-        <View style={styles.watchlistSection}>
-          <Text style={styles.sectionTitle}>Trending Stocks</Text>
-          {watchlist.map((stock) => (
-            <StockCard
-              key={stock.symbol}
-              symbol={stock.symbol}
-              name={stock.name}
-              currentPrice={stock.currentPrice}
-              change={stock.change}
-              changePercent={stock.changePercent}
-              predictedChange={stock.predictedChange}
-            />
-          ))}
-        </View>
-
-        <View style={styles.infoBox}>
-          <IconSymbol name="info.circle" size={20} color={colors.primary} style={styles.infoIcon} />
-          <Text style={styles.infoText}>
-            Stock prices are simulated using sophisticated algorithms that model real market behavior including volatility, trends, and sector correlations. Tap refresh to update with today&apos;s market simulation.
-          </Text>
-        </View>
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          {/* Info Section */}
+          <View style={styles.infoSection}>
+            <Text style={styles.infoSectionTitle}>About Real-Time Data</Text>
+            <Text style={styles.infoSectionText}>
+              StockBot now uses real-time stock market data from Finnhub API, providing accurate and up-to-date pricing information for all major US stocks.
+            </Text>
+            <Text style={styles.infoSectionText}>
+              • Live stock prices updated every minute{'\n'}
+              • Historical data for the past 30 days{'\n'}
+              • AI-powered predictions based on real market trends{'\n'}
+              • Market hours awareness (9:30 AM - 4:00 PM ET)
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
     </>
   );
 }
@@ -227,93 +268,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 10 : 20,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginBottom: 16,
-  },
-  sourceContainer: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.primary + '30',
-  },
-  sourceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sourceIcon: {
-    marginRight: 8,
-  },
-  sourceTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  sourceText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 10,
-  },
-  marketStatusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  marketStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  marketStatusText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  updateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  updateInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  clockIcon: {
-    marginRight: 6,
-  },
-  updateText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  refreshButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: colors.cardBackground,
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   searchContainer: {
     paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   searchBar: {
     flexDirection: 'row',
@@ -322,11 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  searchIcon: {
-    marginRight: 8,
+    gap: 12,
   },
   searchInput: {
     flex: 1,
@@ -334,16 +302,29 @@ const styles = StyleSheet.create({
     color: colors.text,
     padding: 0,
   },
-  clearButton: {
-    padding: 4,
-  },
-  searchResults: {
-    marginTop: 8,
+  searchResultsContainer: {
+    position: 'absolute',
+    top: 80,
+    left: 20,
+    right: 20,
+    maxHeight: 300,
     backgroundColor: colors.cardBackground,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
+    zIndex: 1000,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  searchResults: {
+    maxHeight: 300,
   },
   searchResultItem: {
     flexDirection: 'row',
@@ -353,55 +334,113 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  searchResultLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
   searchResultSymbol: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   searchResultName: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
   },
-  searchResultRight: {
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  header: {
+    padding: 20,
+    gap: 16,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  refreshButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.cardBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dataSourceBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    backgroundColor: colors.successBackground,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
-  searchResultSector: {
-    fontSize: 12,
+  dataSourceText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.success,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
     color: colors.textSecondary,
   },
   watchlistSection: {
     paddingHorizontal: 20,
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  infoSection: {
+    margin: 20,
+    padding: 20,
     backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: colors.primary + '30',
+    borderRadius: 16,
+    gap: 12,
   },
-  infoIcon: {
-    marginRight: 12,
-    marginTop: 2,
+  infoSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
   },
-  infoText: {
-    flex: 1,
+  infoSectionText: {
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,

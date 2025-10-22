@@ -1,8 +1,9 @@
 
 import { StockData, WatchlistItem } from '@/types/stock';
 import { getDailyVariation, getEnhancedDailyVariation } from '@/utils/stockUpdateService';
+import { fetchStockQuote, fetchHistoricalData, fetchCompanyProfile, searchStocksAPI } from '@/utils/stockApiService';
 
-// Generate mock historical data for the past 30 days
+// Generate mock historical data for the past 30 days (fallback)
 const generateHistoricalData = (basePrice: number, volatility: number = 0.02) => {
   const data = [];
   let price = basePrice;
@@ -197,9 +198,81 @@ export const getCompanyDescription = (symbol: string): string => {
   return stock?.description || 'No description available.';
 };
 
-// Generate stock data dynamically with enhanced daily variation
-const generateStockData = (symbol: string, name: string, basePrice: number, sector: string): StockData => {
-  // Get stock info for sector
+// Fetch real stock data from API
+const fetchRealStockData = async (symbol: string, name: string, sector: string): Promise<StockData | null> => {
+  try {
+    console.log('Fetching real stock data for:', symbol);
+    
+    // Fetch quote and historical data in parallel
+    const [quote, historicalCandles] = await Promise.all([
+      fetchStockQuote(symbol),
+      fetchHistoricalData(symbol, 'D', 30)
+    ]);
+
+    if (!quote || !historicalCandles) {
+      console.log('Failed to fetch real data for:', symbol);
+      return null;
+    }
+
+    // Convert historical candles to our format
+    const historicalData = historicalCandles.t.map((timestamp, index) => ({
+      date: new Date(timestamp * 1000).toISOString().split('T')[0],
+      price: parseFloat(historicalCandles.c[index].toFixed(2)),
+    }));
+
+    const currentPrice = quote.c;
+    const previousClose = quote.pc;
+    const change = currentPrice - previousClose;
+    const changePercent = (change / previousClose) * 100;
+
+    // Calculate trend for predictions
+    const recentData = historicalData.slice(-10);
+    const avgChange = recentData.reduce((sum, point, idx) => {
+      if (idx === 0) return 0;
+      return sum + (point.price - recentData[idx - 1].price);
+    }, 0) / (recentData.length - 1);
+    
+    const trend = avgChange / currentPrice;
+    
+    // Generate prediction data
+    const predictionData = generatePredictionData(currentPrice, 7, trend);
+    const predictedPrice = predictionData[predictionData.length - 1].price;
+    const predictedChange = predictedPrice - currentPrice;
+    const predictedChangePercent = (predictedChange / currentPrice) * 100;
+    
+    const confidence = Math.round(75 + Math.random() * 20);
+
+    return {
+      symbol,
+      name,
+      currentPrice: parseFloat(currentPrice.toFixed(2)),
+      previousClose: parseFloat(previousClose.toFixed(2)),
+      change: parseFloat(change.toFixed(2)),
+      changePercent: parseFloat(changePercent.toFixed(2)),
+      predictedPrice: parseFloat(predictedPrice.toFixed(2)),
+      predictedChange: parseFloat(predictedChange.toFixed(2)),
+      predictedChangePercent: parseFloat(predictedChangePercent.toFixed(2)),
+      confidence,
+      historicalData,
+      predictionData,
+    };
+  } catch (error) {
+    console.error('Error fetching real stock data:', error);
+    return null;
+  }
+};
+
+// Generate stock data dynamically with real API data
+const generateStockData = async (symbol: string, name: string, basePrice: number, sector: string): Promise<StockData> => {
+  // Try to fetch real data first
+  const realData = await fetchRealStockData(symbol, name, sector);
+  if (realData) {
+    console.log('Using real stock data for:', symbol);
+    return realData;
+  }
+
+  // Fallback to mock data if API fails
+  console.log('Using mock data for:', symbol);
   const stockInfo = allUSStocks.find(s => s.symbol === symbol);
   const stockSector = stockInfo?.sector || sector;
   
@@ -238,8 +311,8 @@ const generateStockData = (symbol: string, name: string, basePrice: number, sect
   };
 };
 
-// Generate initial mock stocks with enhanced daily variation
-const generateMockStocks = (): StockData[] => {
+// Generate initial mock stocks with real API data
+const generateMockStocks = async (): Promise<StockData[]> => {
   const topStocks = [
     { symbol: 'AAPL', name: 'Apple Inc.', basePrice: 178.45, sector: 'Technology' },
     { symbol: 'GOOGL', name: 'Alphabet Inc.', basePrice: 142.80, sector: 'Technology' },
@@ -249,45 +322,26 @@ const generateMockStocks = (): StockData[] => {
     { symbol: 'NVDA', name: 'NVIDIA Corporation', basePrice: 875.50, sector: 'Technology' },
   ];
   
-  return topStocks.map(stock => {
-    const dailyVariation = getEnhancedDailyVariation(stock.symbol, stock.sector);
-    const adjustedBasePrice = stock.basePrice * dailyVariation;
-    
-    const volatility = stock.sector === 'Technology' ? 0.03 : 0.025;
-    const historicalData = generateHistoricalData(adjustedBasePrice, volatility);
-    const currentPrice = historicalData[historicalData.length - 1].price;
-    const previousClose = historicalData[historicalData.length - 2].price;
-    const change = currentPrice - previousClose;
-    const changePercent = (change / previousClose) * 100;
-    
-    const trend = stock.sector === 'Technology' ? 0.015 : 0.01;
-    const predictionData = generatePredictionData(currentPrice, 7, trend);
-    const predictedPrice = predictionData[predictionData.length - 1].price;
-    const predictedChange = predictedPrice - currentPrice;
-    const predictedChangePercent = (predictedChange / currentPrice) * 100;
-    
-    const confidence = Math.round(75 + Math.random() * 20);
-    
-    return {
-      symbol: stock.symbol,
-      name: stock.name,
-      currentPrice: parseFloat(currentPrice.toFixed(2)),
-      previousClose: parseFloat(previousClose.toFixed(2)),
-      change: parseFloat(change.toFixed(2)),
-      changePercent: parseFloat(changePercent.toFixed(2)),
-      predictedPrice: parseFloat(predictedPrice.toFixed(2)),
-      predictedChange: parseFloat(predictedChange.toFixed(2)),
-      predictedChangePercent: parseFloat(predictedChangePercent.toFixed(2)),
-      confidence,
-      historicalData,
-      predictionData,
-    };
-  });
+  const stockPromises = topStocks.map(stock => generateStockData(stock.symbol, stock.name, stock.basePrice, stock.sector));
+  return await Promise.all(stockPromises);
 };
 
-export const mockStocks: StockData[] = generateMockStocks();
+// Initialize with real data
+let mockStocks: StockData[] = [];
 
-export const getStockBySymbol = (symbol: string): StockData | undefined => {
+// Initialize stocks asynchronously
+export const initializeStocks = async (): Promise<StockData[]> => {
+  if (mockStocks.length === 0) {
+    console.log('Initializing stocks with real data...');
+    mockStocks = await generateMockStocks();
+  }
+  return mockStocks;
+};
+
+// Export synchronously for backward compatibility
+export { mockStocks };
+
+export const getStockBySymbol = async (symbol: string): Promise<StockData | undefined> => {
   console.log('Getting stock by symbol:', symbol);
   
   // First check if it's in the mock stocks
@@ -299,14 +353,15 @@ export const getStockBySymbol = (symbol: string): StockData | undefined => {
   // Otherwise, generate it dynamically from the all stocks list
   const stockInfo = allUSStocks.find(stock => stock.symbol === symbol);
   if (stockInfo) {
-    return generateStockData(stockInfo.symbol, stockInfo.name, stockInfo.basePrice, stockInfo.sector);
+    return await generateStockData(stockInfo.symbol, stockInfo.name, stockInfo.basePrice, stockInfo.sector);
   }
   
   return undefined;
 };
 
-export const getWatchlist = (): WatchlistItem[] => {
-  return mockStocks.map(stock => ({
+export const getWatchlist = async (): Promise<WatchlistItem[]> => {
+  const stocks = await initializeStocks();
+  return stocks.map(stock => ({
     symbol: stock.symbol,
     name: stock.name,
     currentPrice: stock.currentPrice,
@@ -316,8 +371,8 @@ export const getWatchlist = (): WatchlistItem[] => {
   }));
 };
 
-// Search stocks by symbol or name
-export const searchStocks = (query: string, limit: number = 10): Array<{ symbol: string; name: string; sector: string }> => {
+// Search stocks using real API
+export const searchStocks = async (query: string, limit: number = 10): Promise<Array<{ symbol: string; name: string; sector: string }>> => {
   if (!query || query.trim().length === 0) {
     return [];
   }
@@ -325,6 +380,22 @@ export const searchStocks = (query: string, limit: number = 10): Array<{ symbol:
   const searchTerm = query.toLowerCase().trim();
   console.log('Searching stocks with query:', searchTerm);
   
+  // Try API search first
+  try {
+    const apiResults = await searchStocksAPI(query);
+    if (apiResults.length > 0) {
+      console.log('Using API search results');
+      return apiResults.map(result => ({
+        symbol: result.symbol,
+        name: result.description,
+        sector: 'Unknown', // API doesn't provide sector in search
+      })).slice(0, limit);
+    }
+  } catch (error) {
+    console.error('API search failed, falling back to local search:', error);
+  }
+  
+  // Fallback to local search
   const results = allUSStocks.filter(stock => 
     stock.symbol.toLowerCase().includes(searchTerm) ||
     stock.name.toLowerCase().includes(searchTerm)
