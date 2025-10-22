@@ -197,7 +197,7 @@ const fetchRealStockData = async (symbol: string, name: string, sector: string):
     }
 
     // Convert historical candles to our format
-    const historicalData = historicalCandles.t.map((timestamp, index) => ({
+    const historicalData = historicalCandles.t.map((timestamp: number, index: number) => ({
       date: new Date(timestamp * 1000).toISOString().split('T')[0],
       price: parseFloat(historicalCandles.c[index].toFixed(2)),
     }));
@@ -209,7 +209,7 @@ const fetchRealStockData = async (symbol: string, name: string, sector: string):
 
     // Calculate trend for predictions
     const recentData = historicalData.slice(-10);
-    const avgChange = recentData.reduce((sum, point, idx) => {
+    const avgChange = recentData.reduce((sum: number, point: any, idx: number) => {
       if (idx === 0) return 0;
       return sum + (point.price - recentData[idx - 1].price);
     }, 0) / (recentData.length - 1);
@@ -301,17 +301,19 @@ export const checkAPIStatus = async (): Promise<boolean> => {
     apiAvailable = await checkAPIAvailability();
     if (!apiAvailable) {
       console.error('❌ ========================================');
-      console.error('❌ FINNHUB API IS NOT AVAILABLE');
+      console.error('❌ ALPHA VANTAGE API IS NOT AVAILABLE');
       console.error('❌ Real-time stock data cannot be loaded');
       console.error('❌ To fix this:');
       console.error('❌ 1. Check your internet connection');
       console.error('❌ 2. Verify API key is valid');
-      console.error('❌ 3. Get a free API key from https://finnhub.io/');
+      console.error('❌ 3. Check rate limits (5 calls/min, 500/day)');
+      console.error('❌ 4. Get a free API key from https://www.alphavantage.co/');
       console.error('❌ ========================================');
     } else {
       console.log('✅ ========================================');
-      console.log('✅ FINNHUB API IS AVAILABLE');
+      console.log('✅ ALPHA VANTAGE API IS AVAILABLE');
       console.log('✅ Using real-time stock data');
+      console.log('✅ API Key: TZZX7A3O5X9XLQEP');
       console.log('✅ ========================================');
     }
   }

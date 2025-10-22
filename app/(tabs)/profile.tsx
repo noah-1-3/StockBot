@@ -27,12 +27,12 @@ const ProfileScreen = () => {
     setApiStatus(status);
   };
 
-  const handleOpenFinnhub = () => {
-    Linking.openURL('https://finnhub.io/register');
+  const handleOpenAlphaVantage = () => {
+    Linking.openURL('https://www.alphavantage.co/support/#api-key');
   };
 
   const handleOpenDocs = () => {
-    Linking.openURL('https://finnhub.io/docs/api');
+    Linking.openURL('https://www.alphavantage.co/documentation/');
   };
 
   return (
@@ -57,7 +57,7 @@ const ProfileScreen = () => {
             </View>
           </View>
           <Text style={styles.appDescription}>
-            AI-powered stock prediction app using real-time market data from Finnhub API to analyze trends and forecast future stock movements.
+            AI-powered stock prediction app using real-time market data from Alpha Vantage API to analyze trends and forecast future stock movements.
           </Text>
         </View>
 
@@ -92,15 +92,15 @@ const ProfileScreen = () => {
                   <Text style={styles.stepNumberText}>1</Text>
                 </View>
                 <View style={styles.stepContent}>
-                  <Text style={styles.stepTitle}>Create Free Account</Text>
+                  <Text style={styles.stepTitle}>Get Free API Key</Text>
                   <Text style={styles.stepText}>
-                    Sign up for a free Finnhub account to get your API key
+                    Alpha Vantage offers free API keys with no credit card required
                   </Text>
                   <Pressable 
                     style={styles.linkButton}
-                    onPress={handleOpenFinnhub}
+                    onPress={handleOpenAlphaVantage}
                   >
-                    <Text style={styles.linkButtonText}>Sign Up at Finnhub</Text>
+                    <Text style={styles.linkButtonText}>Get API Key</Text>
                     <IconSymbol name="arrow.up.right" size={14} color={colors.primary} />
                   </Pressable>
                 </View>
@@ -111,9 +111,9 @@ const ProfileScreen = () => {
                   <Text style={styles.stepNumberText}>2</Text>
                 </View>
                 <View style={styles.stepContent}>
-                  <Text style={styles.stepTitle}>Get Your API Key</Text>
+                  <Text style={styles.stepTitle}>Copy Your API Key</Text>
                   <Text style={styles.stepText}>
-                    After signing up, copy your API key from the dashboard
+                    After requesting, you&apos;ll receive your API key via email instantly
                   </Text>
                 </View>
               </View>
@@ -129,7 +129,7 @@ const ProfileScreen = () => {
                   </Text>
                   <View style={styles.codeBlock}>
                     <Text style={styles.codeText}>
-                      const FINNHUB_API_KEY = &apos;your_api_key_here&apos;;
+                      const ALPHA_VANTAGE_API_KEY = &apos;your_api_key_here&apos;;
                     </Text>
                   </View>
                 </View>
@@ -151,7 +151,7 @@ const ProfileScreen = () => {
             <View style={styles.infoBox}>
               <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
               <Text style={styles.infoText}>
-                The free tier includes 60 API calls per minute, which is sufficient for personal use.
+                The free tier includes 5 API calls per minute and 500 calls per day, which is sufficient for personal use.
               </Text>
             </View>
           </View>
@@ -166,9 +166,15 @@ const ProfileScreen = () => {
               <View style={styles.realTimeInfoContent}>
                 <Text style={styles.realTimeInfoTitle}>Live Market Data Active</Text>
                 <Text style={styles.realTimeInfoText}>
-                  All stock prices and data are fetched in real-time from Finnhub API. No simulated or mock data is used.
+                  All stock prices and data are fetched in real-time from Alpha Vantage API. No simulated or mock data is used.
                 </Text>
               </View>
+            </View>
+            
+            <View style={styles.apiInfoCard}>
+              <Text style={styles.apiInfoTitle}>Current API Key</Text>
+              <Text style={styles.apiInfoText}>TZZX7A3O5X9XLQEP</Text>
+              <Text style={styles.apiInfoSubtext}>Alpha Vantage Free Tier</Text>
             </View>
           </View>
         )}
@@ -214,7 +220,7 @@ const ProfileScreen = () => {
             patterns, and market sentiment to provide accurate forecasts.
           </Text>
           <Text style={styles.aboutText}>
-            All stock data is fetched in real-time from Finnhub API, ensuring you always have 
+            All stock data is fetched in real-time from Alpha Vantage API, ensuring you always have 
             access to the latest market information. The app does not use any simulated or 
             mock data.
           </Text>
@@ -233,7 +239,7 @@ const ProfileScreen = () => {
             onPress={handleOpenDocs}
           >
             <IconSymbol name="book.fill" size={20} color={colors.primary} />
-            <Text style={styles.linkCardText}>Finnhub API Documentation</Text>
+            <Text style={styles.linkCardText}>Alpha Vantage API Documentation</Text>
             <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
           </Pressable>
         </View>
@@ -426,6 +432,7 @@ const styles = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: colors.success + '30',
+    marginBottom: 12,
   },
   realTimeInfoContent: {
     flex: 1,
@@ -440,6 +447,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  apiInfoCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  apiInfoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  apiInfoText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginBottom: 4,
+  },
+  apiInfoSubtext: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   featureList: {
     gap: 12,
