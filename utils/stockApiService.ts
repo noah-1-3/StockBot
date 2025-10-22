@@ -2,7 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Alpha Vantage API configuration
-const ALPHA_VANTAGE_API_KEY = 'd3s4oe1r01qldtrbtf40d3s4oe1r01qldtrbtf4g';
+const ALPHA_VANTAGE_API_KEY = '06GYVOYFBIH49KBZ';
 const ALPHA_VANTAGE_BASE_URL = 'https://www.alphavantage.co/query';
 
 const CACHE_KEY_PREFIX = '@stock_api_cache_';
