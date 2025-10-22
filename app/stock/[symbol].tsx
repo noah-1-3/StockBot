@@ -1,6 +1,8 @@
 
+import { colors } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
+import { LineChart } from 'react-native-chart-kit';
 import React, { useState, useEffect } from 'react';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { 
   View, 
   Text, 
@@ -12,44 +14,45 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
-import { colors } from '@/styles/commonStyles';
-import { getStockBySymbol, generateDynamicPrediction } from '@/data/mockStockData';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { IconSymbol } from '@/components/IconSymbol';
+import { getStockBySymbol, generateDynamicPrediction, getCompanyDescription } from '@/data/mockStockData';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 
 export default function StockDetailScreen() {
-  const params = useLocalSearchParams();
-  const routeSymbol = params.symbol as string;
-  const customSymbol = params.customSymbol as string;
-  const symbol = customSymbol || routeSymbol;
-  
-  const [stockData, setStockData] = useState(getStockBySymbol(symbol));
-  const [predictionDays, setPredictionDays] = useState('7');
-  const [targetDate, setTargetDate] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const router = useRouter();
+  const { symbol } = useLocalSearchParams();
+  const [stock, setStock] = useState(getStockBySymbol(symbol as string));
+  const [predictionDate, setPredictionDate] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [companyDescription, setCompanyDescription] = useState('');
 
   useEffect(() => {
-    const stock = getStockBySymbol(symbol);
-    if (stock) {
-      setStockData(stock);
+    if (symbol) {
+      const stockData = getStockBySymbol(symbol as string);
+      setStock(stockData);
+      
+      // Get company description
+      const description = getCompanyDescription(symbol as string);
+      setCompanyDescription(description);
     }
   }, [symbol]);
 
-  if (!stockData) {
+  if (!stock) {
     return (
       <View style={styles.container}>
-        <Stack.Screen
+        <Stack.Screen 
           options={{
             title: 'Stock Not Found',
-            headerBackTitle: 'Back',
+            headerShown: true,
+            headerStyle: {
+              backgroundColor: colors.background,
+            },
+            headerTintColor: colors.text,
           }}
         />
         <View style={styles.errorContainer}>
-          <IconSymbol name="exclamationmark.triangle.fill" size={64} color={colors.textSecondary} />
+          <IconSymbol name="exclamationmark.triangle" size={48} color={colors.textSecondary} />
           <Text style={styles.errorText}>Stock not found</Text>
-          <Text style={styles.errorSubtext}>The stock symbol &quot;{symbol}&quot; could not be found.</Text>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </Pressable>
@@ -59,47 +62,53 @@ export default function StockDetailScreen() {
   }
 
   const handleGeneratePrediction = () => {
-    const days = parseInt(predictionDays) || 7;
-    const daysFromNow = Math.max(1, Math.min(365, days));
+    console.log('Generating prediction for date:', predictionDate);
     
-    const newDate = new Date();
-    newDate.setDate(newDate.getDate() + daysFromNow);
-    setTargetDate(newDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetDate = new Date(predictionDate);
+    targetDate.setHours(0, 0, 0, 0);
     
-    const baseStock = getStockBySymbol(symbol);
+    const daysAhead = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysAhead < 1) {
+      console.log('Cannot predict for past dates');
+      return;
+    }
+    
+    const baseStock = getStockBySymbol(symbol as string);
     if (baseStock) {
-      const updatedStock = generateDynamicPrediction(baseStock, daysFromNow);
-      setStockData(updatedStock);
-      console.log('Generated prediction for', daysFromNow, 'days ahead');
+      const updatedStock = generateDynamicPrediction(baseStock, daysAhead);
+      setStock(updatedStock);
     }
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
-    
     if (selectedDate) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      selectedDate.setHours(0, 0, 0, 0);
+      setPredictionDate(selectedDate);
       
-      const diffTime = selectedDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays > 0 && diffDays <= 365) {
-        setTargetDate(selectedDate);
-        setPredictionDays(diffDays.toString());
+      // Auto-generate prediction when date changes
+      setTimeout(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const targetDate = new Date(selectedDate);
+        targetDate.setHours(0, 0, 0, 0);
         
-        const baseStock = getStockBySymbol(symbol);
-        if (baseStock) {
-          const updatedStock = generateDynamicPrediction(baseStock, diffDays);
-          setStockData(updatedStock);
-          console.log('Generated prediction for date:', selectedDate.toDateString());
+        const daysAhead = Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysAhead >= 1) {
+          const baseStock = getStockBySymbol(symbol as string);
+          if (baseStock) {
+            const updatedStock = generateDynamicPrediction(baseStock, daysAhead);
+            setStock(updatedStock);
+          }
         }
-      }
+      }, 100);
     }
   };
 
-  const formatDate = (date: Date): string => {
+  const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric', 
@@ -107,90 +116,86 @@ export default function StockDetailScreen() {
     });
   };
 
-  const chartWidth = Dimensions.get('window').width - 32;
-  const allData = [...stockData.historicalData, ...stockData.predictionData];
   const chartData = {
-    labels: allData
-      .filter((_, index) => index % Math.ceil(allData.length / 6) === 0)
+    labels: stock.historicalData
+      .filter((_, index) => index % 5 === 0)
       .map(d => {
         const date = new Date(d.date);
         return `${date.getMonth() + 1}/${date.getDate()}`;
       }),
     datasets: [
       {
-        data: allData.map(d => d.price),
+        data: stock.historicalData
+          .filter((_, index) => index % 5 === 0)
+          .map(d => d.price),
         color: (opacity = 1) => colors.primary,
         strokeWidth: 2,
       },
     ],
   };
 
-  const isPositiveChange = stockData.change >= 0;
-  const isPredictionPositive = stockData.predictedChange >= 0;
+  const screenWidth = Dimensions.get('window').width;
 
   return (
     <>
-      <Stack.Screen
+      <Stack.Screen 
         options={{
-          title: stockData.symbol,
+          title: stock.symbol,
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background,
+          },
+          headerTintColor: colors.text,
           headerBackTitle: 'Back',
         }}
       />
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <View style={styles.symbolContainer}>
-              <View style={styles.symbolIconContainer}>
-                <IconSymbol name="chart.line.uptrend.xyaxis" size={24} color={colors.primary} />
-              </View>
-              <View>
-                <Text style={styles.symbol}>{stockData.symbol}</Text>
-                <Text style={styles.name}>{stockData.name}</Text>
+            <View>
+              <Text style={styles.symbol}>{stock.symbol}</Text>
+              <Text style={styles.name}>{stock.name}</Text>
+            </View>
+            <View style={styles.priceContainer}>
+              <Text style={styles.price}>${stock.currentPrice.toFixed(2)}</Text>
+              <View style={[
+                styles.changeBadge,
+                { backgroundColor: stock.change >= 0 ? colors.success + '20' : colors.error + '20' }
+              ]}>
+                <IconSymbol 
+                  name={stock.change >= 0 ? 'arrow.up' : 'arrow.down'} 
+                  size={12} 
+                  color={stock.change >= 0 ? colors.success : colors.error}
+                  style={styles.changeIcon}
+                />
+                <Text style={[
+                  styles.changeText,
+                  { color: stock.change >= 0 ? colors.success : colors.error }
+                ]}>
+                  {Math.abs(stock.changePercent).toFixed(2)}%
+                </Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.priceContainer}>
-            <Text style={styles.currentPrice}>${stockData.currentPrice.toFixed(2)}</Text>
-            <View style={[styles.changeContainer, isPositiveChange ? styles.positiveChange : styles.negativeChange]}>
-              <IconSymbol 
-                name={isPositiveChange ? 'arrow.up' : 'arrow.down'} 
-                size={14} 
-                color={isPositiveChange ? colors.success : colors.error} 
-              />
-              <Text style={[styles.changeText, isPositiveChange ? styles.positiveText : styles.negativeText]}>
-                ${Math.abs(stockData.change).toFixed(2)} ({Math.abs(stockData.changePercent).toFixed(2)}%)
-              </Text>
+          {companyDescription && (
+            <View style={styles.descriptionContainer}>
+              <Text style={styles.descriptionTitle}>About</Text>
+              <Text style={styles.descriptionText}>{companyDescription}</Text>
             </View>
-          </View>
+          )}
         </View>
 
-        <View style={styles.chartCard}>
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Price History & Prediction</Text>
-            <View style={styles.chartLegend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-                <Text style={styles.legendText}>Historical</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: colors.highlight }]} />
-                <Text style={styles.legendText}>Predicted</Text>
-              </View>
-            </View>
-          </View>
+        <View style={styles.chartContainer}>
+          <Text style={styles.sectionTitle}>30-Day Historical Data</Text>
           <LineChart
             data={chartData}
-            width={chartWidth}
+            width={screenWidth - 40}
             height={220}
             chartConfig={{
-              backgroundColor: colors.card,
-              backgroundGradientFrom: colors.card,
-              backgroundGradientTo: colors.card,
+              backgroundColor: colors.cardBackground,
+              backgroundGradientFrom: colors.cardBackground,
+              backgroundGradientTo: colors.cardBackground,
               decimalPlaces: 2,
               color: (opacity = 1) => colors.primary,
               labelColor: (opacity = 1) => colors.textSecondary,
@@ -200,160 +205,90 @@ export default function StockDetailScreen() {
               propsForDots: {
                 r: '0',
               },
-              propsForBackgroundLines: {
-                strokeDasharray: '',
-                stroke: colors.border,
-                strokeWidth: 1,
-              },
             }}
             bezier
             style={styles.chart}
-            withInnerLines={true}
-            withOuterLines={true}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            withVerticalLabels={true}
-            withHorizontalLabels={true}
-            fromZero={false}
           />
         </View>
 
-        <View style={styles.predictionCard}>
-          <View style={styles.predictionHeader}>
-            <IconSymbol name="sparkles" size={24} color={colors.highlight} />
-            <Text style={styles.predictionTitle}>AI Prediction</Text>
-          </View>
+        <View style={styles.predictionSection}>
+          <Text style={styles.sectionTitle}>Price Prediction</Text>
           
-          <View style={styles.predictionContent}>
-            <View style={styles.predictionRow}>
-              <Text style={styles.predictionLabel}>Target Date</Text>
-              <Text style={styles.predictionValue}>{formatDate(targetDate)}</Text>
-            </View>
-            
+          <View style={styles.datePickerContainer}>
+            <Text style={styles.dateLabel}>Prediction Date:</Text>
+            <Pressable 
+              style={styles.dateButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <IconSymbol name="calendar" size={18} color={colors.primary} style={styles.calendarIcon} />
+              <Text style={styles.dateButtonText}>{formatDate(predictionDate)}</Text>
+            </Pressable>
+          </View>
+
+          {showDatePicker && (
+            <DateTimePicker
+              value={predictionDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleDateChange}
+              minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
+              maximumDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)}
+            />
+          )}
+
+          <View style={styles.predictionCard}>
             <View style={styles.predictionRow}>
               <Text style={styles.predictionLabel}>Predicted Price</Text>
-              <Text style={[styles.predictionPrice, isPredictionPositive ? styles.positiveText : styles.negativeText]}>
-                ${stockData.predictedPrice.toFixed(2)}
+              <Text style={styles.predictionValue}>
+                ${stock.predictedPrice.toFixed(2)}
               </Text>
             </View>
             
             <View style={styles.predictionRow}>
               <Text style={styles.predictionLabel}>Expected Change</Text>
-              <View style={[styles.changeContainer, isPredictionPositive ? styles.positiveChange : styles.negativeChange]}>
-                <IconSymbol 
-                  name={isPredictionPositive ? 'arrow.up' : 'arrow.down'} 
-                  size={14} 
-                  color={isPredictionPositive ? colors.success : colors.error} 
-                />
-                <Text style={[styles.changeText, isPredictionPositive ? styles.positiveText : styles.negativeText]}>
-                  ${Math.abs(stockData.predictedChange).toFixed(2)} ({Math.abs(stockData.predictedChangePercent).toFixed(2)}%)
+              <View style={styles.predictionChangeContainer}>
+                <Text style={[
+                  styles.predictionChange,
+                  { color: stock.predictedChange >= 0 ? colors.success : colors.error }
+                ]}>
+                  {stock.predictedChange >= 0 ? '+' : ''}${stock.predictedChange.toFixed(2)}
+                </Text>
+                <Text style={[
+                  styles.predictionChangePercent,
+                  { color: stock.predictedChange >= 0 ? colors.success : colors.error }
+                ]}>
+                  ({stock.predictedChange >= 0 ? '+' : ''}{stock.predictedChangePercent.toFixed(2)}%)
                 </Text>
               </View>
             </View>
-            
+
             <View style={styles.confidenceContainer}>
-              <View style={styles.confidenceHeader}>
-                <Text style={styles.confidenceLabel}>Confidence Score</Text>
-                <Text style={styles.confidenceValue}>{stockData.confidence}%</Text>
-              </View>
-              <View style={styles.confidenceBarContainer}>
+              <Text style={styles.confidenceLabel}>Confidence Level</Text>
+              <View style={styles.confidenceBar}>
                 <View 
                   style={[
-                    styles.confidenceBar, 
+                    styles.confidenceFill,
                     { 
-                      width: `${stockData.confidence}%`,
-                      backgroundColor: stockData.confidence >= 80 ? colors.success : 
-                                     stockData.confidence >= 60 ? colors.highlight : colors.error
+                      width: `${stock.confidence}%`,
+                      backgroundColor: stock.confidence >= 80 ? colors.success : 
+                                     stock.confidence >= 60 ? colors.warning : colors.error
                     }
-                  ]} 
+                  ]}
                 />
               </View>
+              <Text style={styles.confidenceText}>{stock.confidence}%</Text>
             </View>
+          </View>
+
+          <View style={styles.disclaimerBox}>
+            <IconSymbol name="exclamationmark.triangle" size={16} color={colors.warning} style={styles.disclaimerIcon} />
+            <Text style={styles.disclaimerText}>
+              Predictions are based on historical data and AI analysis. Not financial advice.
+            </Text>
           </View>
         </View>
 
-        <View style={styles.customPredictionCard}>
-          <Text style={styles.customPredictionTitle}>Custom Prediction</Text>
-          <Text style={styles.customPredictionSubtitle}>
-            Choose a future date to see AI-powered price predictions
-          </Text>
-
-          <View style={styles.dateInputContainer}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Days Ahead</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  value={predictionDays}
-                  onChangeText={setPredictionDays}
-                  keyboardType="number-pad"
-                  placeholder="7"
-                  placeholderTextColor={colors.textSecondary}
-                />
-                <Text style={styles.inputSuffix}>days</Text>
-              </View>
-            </View>
-
-            <Pressable 
-              style={styles.datePickerButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <IconSymbol name="calendar" size={20} color={colors.primary} />
-              <Text style={styles.datePickerButtonText}>Pick Date</Text>
-            </Pressable>
-          </View>
-
-          <Pressable 
-            style={styles.generateButton}
-            onPress={handleGeneratePrediction}
-          >
-            <IconSymbol name="wand.and.stars" size={20} color="#FFFFFF" />
-            <Text style={styles.generateButtonText}>Generate Prediction</Text>
-          </Pressable>
-
-          {showDatePicker && (
-            <Modal
-              transparent={true}
-              animationType="slide"
-              visible={showDatePicker}
-              onRequestClose={() => setShowDatePicker(false)}
-            >
-              <Pressable 
-                style={styles.modalOverlay}
-                onPress={() => setShowDatePicker(false)}
-              >
-                <View style={styles.datePickerContainer}>
-                  <View style={styles.datePickerHeader}>
-                    <Pressable onPress={() => setShowDatePicker(false)}>
-                      <Text style={styles.datePickerCancel}>Cancel</Text>
-                    </Pressable>
-                    <Text style={styles.datePickerTitle}>Select Date</Text>
-                    <Pressable onPress={() => setShowDatePicker(false)}>
-                      <Text style={styles.datePickerDone}>Done</Text>
-                    </Pressable>
-                  </View>
-                  <DateTimePicker
-                    value={targetDate}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleDateChange}
-                    minimumDate={new Date()}
-                    maximumDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)}
-                    textColor={colors.text}
-                  />
-                </View>
-              </Pressable>
-            </Modal>
-          )}
-        </View>
-
-        <View style={styles.disclaimer}>
-          <IconSymbol name="info.circle.fill" size={16} color={colors.textSecondary} />
-          <Text style={styles.disclaimerText}>
-            Predictions are based on historical data and AI analysis. This is not financial advice. 
-            Always do your own research before making investment decisions.
-          </Text>
-        </View>
+        <View style={{ height: 100 }} />
       </ScrollView>
     </>
   );
@@ -364,12 +299,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 32,
-  },
   header: {
-    marginBottom: 20,
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   headerTop: {
     flexDirection: 'row',
@@ -377,313 +310,169 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 16,
   },
-  symbolContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  symbolIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   symbol: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   name: {
-    fontSize: 14,
+    fontSize: 16,
     color: colors.textSecondary,
-    fontWeight: '500',
   },
   priceContainer: {
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
   },
-  currentPrice: {
-    fontSize: 32,
-    fontWeight: '800',
+  price: {
+    fontSize: 28,
+    fontWeight: 'bold',
     color: colors.text,
     marginBottom: 8,
   },
-  changeContainer: {
+  changeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    gap: 4,
   },
-  positiveChange: {
-    backgroundColor: colors.success + '20',
-  },
-  negativeChange: {
-    backgroundColor: colors.error + '20',
+  changeIcon: {
+    marginRight: 4,
   },
   changeText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  positiveText: {
-    color: colors.success,
+  descriptionContainer: {
+    marginTop: 8,
   },
-  negativeText: {
-    color: colors.error,
-  },
-  chartCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+  descriptionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.text,
+    marginBottom: 6,
   },
-  chartLegend: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 12,
+  descriptionText: {
+    fontSize: 14,
     color: colors.textSecondary,
-    fontWeight: '500',
+    lineHeight: 20,
+  },
+  chartContainer: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
   },
   chart: {
-    marginVertical: 8,
     borderRadius: 16,
   },
-  predictionCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
+  predictionSection: {
     padding: 20,
-    marginBottom: 16,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
   },
-  predictionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  datePickerContainer: {
     marginBottom: 20,
   },
-  predictionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
+  dateLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
   },
-  predictionContent: {
-    gap: 16,
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  calendarIcon: {
+    marginRight: 12,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  predictionCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   predictionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
   predictionLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textSecondary,
-    fontWeight: '500',
   },
   predictionValue: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: 'bold',
     color: colors.text,
   },
-  predictionPrice: {
-    fontSize: 20,
-    fontWeight: '800',
+  predictionChangeContainer: {
+    alignItems: 'flex-end',
+  },
+  predictionChange: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  predictionChangePercent: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   confidenceContainer: {
     marginTop: 8,
-    padding: 16,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-  },
-  confidenceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
   },
   confidenceLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
+    color: colors.textSecondary,
+    marginBottom: 8,
   },
-  confidenceValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.highlight,
-  },
-  confidenceBarContainer: {
+  confidenceBar: {
     height: 8,
     backgroundColor: colors.border,
     borderRadius: 4,
     overflow: 'hidden',
+    marginBottom: 8,
   },
-  confidenceBar: {
+  confidenceFill: {
     height: '100%',
     borderRadius: 4,
   },
-  customPredictionCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
-  },
-  customPredictionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  customPredictionSubtitle: {
+  confidenceText: {
     fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  dateInputContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  inputGroup: {
-    flex: 1,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-    padding: 0,
+    textAlign: 'right',
   },
-  inputSuffix: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  datePickerButton: {
+  disclaimerBox: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary + '20',
+    alignItems: 'flex-start',
+    backgroundColor: colors.warning + '15',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-    marginTop: 21,
-  },
-  datePickerButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  generateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 10,
-    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
-    elevation: 3,
-  },
-  generateButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  datePickerContainer: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-  },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  datePickerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  datePickerCancel: {
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  datePickerDone: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  disclaimer: {
-    flexDirection: 'row',
-    gap: 10,
     padding: 16,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.highlight,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: colors.warning + '30',
+  },
+  disclaimerIcon: {
+    marginRight: 12,
+    marginTop: 2,
   },
   disclaimerText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
   },
@@ -691,30 +480,23 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: 40,
   },
   errorText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  errorSubtext: {
-    fontSize: 16,
+    fontSize: 18,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 32,
+    marginTop: 16,
+    marginBottom: 24,
   },
   backButton: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     borderRadius: 12,
   },
   backButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

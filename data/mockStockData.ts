@@ -1,5 +1,6 @@
 
 import { StockData, WatchlistItem } from '@/types/stock';
+import { getDailyVariation } from '@/utils/stockUpdateService';
 
 // Generate mock historical data for the past 30 days
 const generateHistoricalData = (basePrice: number, volatility: number = 0.02) => {
@@ -81,119 +82,129 @@ export const generateDynamicPrediction = (baseStock: StockData, daysAhead: numbe
   };
 };
 
-// Comprehensive list of US stocks
+// Comprehensive list of US stocks with company descriptions
 export const allUSStocks = [
   // Tech Giants
-  { symbol: 'AAPL', name: 'Apple Inc.', sector: 'Technology', basePrice: 178.45 },
-  { symbol: 'GOOGL', name: 'Alphabet Inc.', sector: 'Technology', basePrice: 142.80 },
-  { symbol: 'MSFT', name: 'Microsoft Corporation', sector: 'Technology', basePrice: 412.35 },
-  { symbol: 'AMZN', name: 'Amazon.com, Inc.', sector: 'Consumer Cyclical', basePrice: 178.25 },
-  { symbol: 'META', name: 'Meta Platforms, Inc.', sector: 'Technology', basePrice: 485.20 },
-  { symbol: 'NVDA', name: 'NVIDIA Corporation', sector: 'Technology', basePrice: 875.50 },
-  { symbol: 'TSLA', name: 'Tesla, Inc.', sector: 'Automotive', basePrice: 248.90 },
+  { symbol: 'AAPL', name: 'Apple Inc.', sector: 'Technology', basePrice: 178.45, description: 'Designs and manufactures consumer electronics, software, and online services including iPhone, iPad, Mac, and Apple Watch.' },
+  { symbol: 'GOOGL', name: 'Alphabet Inc.', sector: 'Technology', basePrice: 142.80, description: 'Parent company of Google, providing internet search, online advertising, cloud computing, and various software services.' },
+  { symbol: 'MSFT', name: 'Microsoft Corporation', sector: 'Technology', basePrice: 412.35, description: 'Develops software, hardware, and cloud services including Windows, Office, Azure, and Xbox gaming platforms.' },
+  { symbol: 'AMZN', name: 'Amazon.com, Inc.', sector: 'Consumer Cyclical', basePrice: 178.25, description: 'E-commerce giant offering online retail, cloud computing (AWS), digital streaming, and artificial intelligence services.' },
+  { symbol: 'META', name: 'Meta Platforms, Inc.', sector: 'Technology', basePrice: 485.20, description: 'Social media and technology company operating Facebook, Instagram, WhatsApp, and developing virtual reality products.' },
+  { symbol: 'NVDA', name: 'NVIDIA Corporation', sector: 'Technology', basePrice: 875.50, description: 'Designs graphics processing units (GPUs) for gaming, professional visualization, data centers, and AI computing.' },
+  { symbol: 'TSLA', name: 'Tesla, Inc.', sector: 'Automotive', basePrice: 248.90, description: 'Electric vehicle manufacturer and clean energy company producing cars, solar panels, and energy storage solutions.' },
   
   // Financial Services
-  { symbol: 'JPM', name: 'JPMorgan Chase & Co.', sector: 'Financial Services', basePrice: 185.40 },
-  { symbol: 'BAC', name: 'Bank of America Corporation', sector: 'Financial Services', basePrice: 34.50 },
-  { symbol: 'WFC', name: 'Wells Fargo & Company', sector: 'Financial Services', basePrice: 52.30 },
-  { symbol: 'GS', name: 'The Goldman Sachs Group, Inc.', sector: 'Financial Services', basePrice: 425.60 },
-  { symbol: 'MS', name: 'Morgan Stanley', sector: 'Financial Services', basePrice: 98.75 },
-  { symbol: 'V', name: 'Visa Inc.', sector: 'Financial Services', basePrice: 275.80 },
-  { symbol: 'MA', name: 'Mastercard Incorporated', sector: 'Financial Services', basePrice: 445.90 },
-  { symbol: 'AXP', name: 'American Express Company', sector: 'Financial Services', basePrice: 215.30 },
+  { symbol: 'JPM', name: 'JPMorgan Chase & Co.', sector: 'Financial Services', basePrice: 185.40, description: 'Global financial services firm offering investment banking, asset management, and consumer banking services.' },
+  { symbol: 'BAC', name: 'Bank of America Corporation', sector: 'Financial Services', basePrice: 34.50, description: 'Multinational investment bank providing banking, investing, asset management, and financial services.' },
+  { symbol: 'WFC', name: 'Wells Fargo & Company', sector: 'Financial Services', basePrice: 52.30, description: 'Diversified financial services company offering banking, insurance, investments, and mortgage products.' },
+  { symbol: 'GS', name: 'The Goldman Sachs Group, Inc.', sector: 'Financial Services', basePrice: 425.60, description: 'Leading investment banking and securities firm serving corporations, governments, and high-net-worth individuals.' },
+  { symbol: 'MS', name: 'Morgan Stanley', sector: 'Financial Services', basePrice: 98.75, description: 'Global financial services firm providing investment banking, wealth management, and institutional securities.' },
+  { symbol: 'V', name: 'Visa Inc.', sector: 'Financial Services', basePrice: 275.80, description: 'Global payments technology company facilitating electronic funds transfers through credit and debit card networks.' },
+  { symbol: 'MA', name: 'Mastercard Incorporated', sector: 'Financial Services', basePrice: 445.90, description: 'Payment processing network connecting consumers, businesses, and financial institutions worldwide.' },
+  { symbol: 'AXP', name: 'American Express Company', sector: 'Financial Services', basePrice: 215.30, description: 'Financial services corporation offering credit cards, charge cards, and traveler\'s cheque services.' },
   
   // Healthcare
-  { symbol: 'JNJ', name: 'Johnson & Johnson', sector: 'Healthcare', basePrice: 158.90 },
-  { symbol: 'UNH', name: 'UnitedHealth Group Incorporated', sector: 'Healthcare', basePrice: 512.40 },
-  { symbol: 'PFE', name: 'Pfizer Inc.', sector: 'Healthcare', basePrice: 28.65 },
-  { symbol: 'ABBV', name: 'AbbVie Inc.', sector: 'Healthcare', basePrice: 168.75 },
-  { symbol: 'TMO', name: 'Thermo Fisher Scientific Inc.', sector: 'Healthcare', basePrice: 545.20 },
-  { symbol: 'ABT', name: 'Abbott Laboratories', sector: 'Healthcare', basePrice: 112.80 },
-  { symbol: 'MRK', name: 'Merck & Co., Inc.', sector: 'Healthcare', basePrice: 125.40 },
-  { symbol: 'LLY', name: 'Eli Lilly and Company', sector: 'Healthcare', basePrice: 785.30 },
+  { symbol: 'JNJ', name: 'Johnson & Johnson', sector: 'Healthcare', basePrice: 158.90, description: 'Pharmaceutical and consumer healthcare company producing medical devices, pharmaceuticals, and consumer health products.' },
+  { symbol: 'UNH', name: 'UnitedHealth Group Incorporated', sector: 'Healthcare', basePrice: 512.40, description: 'Diversified healthcare company offering health insurance, pharmacy benefits, and healthcare services.' },
+  { symbol: 'PFE', name: 'Pfizer Inc.', sector: 'Healthcare', basePrice: 28.65, description: 'Pharmaceutical corporation developing and manufacturing medicines and vaccines for various therapeutic areas.' },
+  { symbol: 'ABBV', name: 'AbbVie Inc.', sector: 'Healthcare', basePrice: 168.75, description: 'Biopharmaceutical company researching and developing advanced therapies for complex diseases.' },
+  { symbol: 'TMO', name: 'Thermo Fisher Scientific Inc.', sector: 'Healthcare', basePrice: 545.20, description: 'Life sciences company providing analytical instruments, reagents, and laboratory equipment.' },
+  { symbol: 'ABT', name: 'Abbott Laboratories', sector: 'Healthcare', basePrice: 112.80, description: 'Healthcare company producing diagnostics, medical devices, nutrition products, and branded generic medicines.' },
+  { symbol: 'MRK', name: 'Merck & Co., Inc.', sector: 'Healthcare', basePrice: 125.40, description: 'Global pharmaceutical company developing prescription medicines, vaccines, and animal health products.' },
+  { symbol: 'LLY', name: 'Eli Lilly and Company', sector: 'Healthcare', basePrice: 785.30, description: 'Pharmaceutical company discovering and delivering medicines for diabetes, cancer, and other serious conditions.' },
   
   // Consumer Goods
-  { symbol: 'KO', name: 'The Coca-Cola Company', sector: 'Consumer Defensive', basePrice: 62.45 },
-  { symbol: 'PEP', name: 'PepsiCo, Inc.', sector: 'Consumer Defensive', basePrice: 168.90 },
-  { symbol: 'WMT', name: 'Walmart Inc.', sector: 'Consumer Defensive', basePrice: 72.35 },
-  { symbol: 'PG', name: 'The Procter & Gamble Company', sector: 'Consumer Defensive', basePrice: 165.80 },
-  { symbol: 'COST', name: 'Costco Wholesale Corporation', sector: 'Consumer Defensive', basePrice: 785.60 },
-  { symbol: 'NKE', name: 'NIKE, Inc.', sector: 'Consumer Cyclical', basePrice: 78.90 },
-  { symbol: 'MCD', name: "McDonald's Corporation", sector: 'Consumer Cyclical', basePrice: 295.40 },
-  { symbol: 'SBUX', name: 'Starbucks Corporation', sector: 'Consumer Cyclical', basePrice: 98.75 },
+  { symbol: 'KO', name: 'The Coca-Cola Company', sector: 'Consumer Defensive', basePrice: 62.45, description: 'Beverage company manufacturing and distributing soft drinks, juices, and other non-alcoholic beverages worldwide.' },
+  { symbol: 'PEP', name: 'PepsiCo, Inc.', sector: 'Consumer Defensive', basePrice: 168.90, description: 'Food and beverage corporation producing snacks, soft drinks, and other consumer products globally.' },
+  { symbol: 'WMT', name: 'Walmart Inc.', sector: 'Consumer Defensive', basePrice: 72.35, description: 'Multinational retail corporation operating hypermarkets, discount stores, and grocery stores worldwide.' },
+  { symbol: 'PG', name: 'The Procter & Gamble Company', sector: 'Consumer Defensive', basePrice: 165.80, description: 'Consumer goods company producing household, personal care, and hygiene products.' },
+  { symbol: 'COST', name: 'Costco Wholesale Corporation', sector: 'Consumer Defensive', basePrice: 785.60, description: 'Membership-only warehouse club offering merchandise at discounted prices to members.' },
+  { symbol: 'NKE', name: 'NIKE, Inc.', sector: 'Consumer Cyclical', basePrice: 78.90, description: 'Athletic footwear and apparel company designing, manufacturing, and marketing sports equipment worldwide.' },
+  { symbol: 'MCD', name: "McDonald's Corporation", sector: 'Consumer Cyclical', basePrice: 295.40, description: 'Fast-food restaurant chain operating and franchising restaurants serving burgers, fries, and beverages globally.' },
+  { symbol: 'SBUX', name: 'Starbucks Corporation', sector: 'Consumer Cyclical', basePrice: 98.75, description: 'Coffeehouse chain roasting, marketing, and retailing specialty coffee and beverages worldwide.' },
   
   // Energy
-  { symbol: 'XOM', name: 'Exxon Mobil Corporation', sector: 'Energy', basePrice: 112.50 },
-  { symbol: 'CVX', name: 'Chevron Corporation', sector: 'Energy', basePrice: 158.30 },
-  { symbol: 'COP', name: 'ConocoPhillips', sector: 'Energy', basePrice: 118.45 },
-  { symbol: 'SLB', name: 'Schlumberger Limited', sector: 'Energy', basePrice: 48.90 },
+  { symbol: 'XOM', name: 'Exxon Mobil Corporation', sector: 'Energy', basePrice: 112.50, description: 'Oil and gas company engaged in exploration, production, refining, and distribution of petroleum products.' },
+  { symbol: 'CVX', name: 'Chevron Corporation', sector: 'Energy', basePrice: 158.30, description: 'Integrated energy company involved in oil and gas exploration, production, refining, and marketing.' },
+  { symbol: 'COP', name: 'ConocoPhillips', sector: 'Energy', basePrice: 118.45, description: 'Independent exploration and production company finding and producing oil and natural gas globally.' },
+  { symbol: 'SLB', name: 'Schlumberger Limited', sector: 'Energy', basePrice: 48.90, description: 'Oilfield services company providing technology and solutions for oil and gas exploration and production.' },
   
   // Telecommunications
-  { symbol: 'T', name: 'AT&T Inc.', sector: 'Communication Services', basePrice: 21.85 },
-  { symbol: 'VZ', name: 'Verizon Communications Inc.', sector: 'Communication Services', basePrice: 42.30 },
-  { symbol: 'TMUS', name: 'T-Mobile US, Inc.', sector: 'Communication Services', basePrice: 185.60 },
+  { symbol: 'T', name: 'AT&T Inc.', sector: 'Communication Services', basePrice: 21.85, description: 'Telecommunications company providing wireless, broadband, and entertainment services to consumers and businesses.' },
+  { symbol: 'VZ', name: 'Verizon Communications Inc.', sector: 'Communication Services', basePrice: 42.30, description: 'Telecommunications provider offering wireless services, internet, and television to residential and business customers.' },
+  { symbol: 'TMUS', name: 'T-Mobile US, Inc.', sector: 'Communication Services', basePrice: 185.60, description: 'Wireless network operator providing mobile communications services and devices across the United States.' },
   
   // Entertainment & Media
-  { symbol: 'DIS', name: 'The Walt Disney Company', sector: 'Communication Services', basePrice: 112.80 },
-  { symbol: 'NFLX', name: 'Netflix, Inc.', sector: 'Communication Services', basePrice: 625.40 },
-  { symbol: 'CMCSA', name: 'Comcast Corporation', sector: 'Communication Services', basePrice: 42.15 },
+  { symbol: 'DIS', name: 'The Walt Disney Company', sector: 'Communication Services', basePrice: 112.80, description: 'Entertainment conglomerate operating theme parks, film studios, television networks, and streaming services.' },
+  { symbol: 'NFLX', name: 'Netflix, Inc.', sector: 'Communication Services', basePrice: 625.40, description: 'Streaming entertainment service offering movies, TV shows, and original content via subscription.' },
+  { symbol: 'CMCSA', name: 'Comcast Corporation', sector: 'Communication Services', basePrice: 42.15, description: 'Media and technology company providing cable television, internet, telephone, and entertainment services.' },
   
   // Semiconductors
-  { symbol: 'INTC', name: 'Intel Corporation', sector: 'Technology', basePrice: 42.85 },
-  { symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', sector: 'Technology', basePrice: 168.90 },
-  { symbol: 'QCOM', name: 'QUALCOMM Incorporated', sector: 'Technology', basePrice: 175.30 },
-  { symbol: 'TXN', name: 'Texas Instruments Incorporated', sector: 'Technology', basePrice: 185.60 },
-  { symbol: 'AVGO', name: 'Broadcom Inc.', sector: 'Technology', basePrice: 1425.80 },
+  { symbol: 'INTC', name: 'Intel Corporation', sector: 'Technology', basePrice: 42.85, description: 'Semiconductor company designing and manufacturing microprocessors and other computing components.' },
+  { symbol: 'AMD', name: 'Advanced Micro Devices, Inc.', sector: 'Technology', basePrice: 168.90, description: 'Semiconductor company producing processors and graphics cards for computers, gaming, and data centers.' },
+  { symbol: 'QCOM', name: 'QUALCOMM Incorporated', sector: 'Technology', basePrice: 175.30, description: 'Wireless technology company developing semiconductors and telecommunications equipment for mobile devices.' },
+  { symbol: 'TXN', name: 'Texas Instruments Incorporated', sector: 'Technology', basePrice: 185.60, description: 'Semiconductor company designing and manufacturing analog and embedded processing chips.' },
+  { symbol: 'AVGO', name: 'Broadcom Inc.', sector: 'Technology', basePrice: 1425.80, description: 'Semiconductor and infrastructure software company providing solutions for data centers and networking.' },
   
   // Retail
-  { symbol: 'HD', name: 'The Home Depot, Inc.', sector: 'Consumer Cyclical', basePrice: 385.40 },
-  { symbol: 'LOW', name: "Lowe's Companies, Inc.", sector: 'Consumer Cyclical', basePrice: 245.90 },
-  { symbol: 'TGT', name: 'Target Corporation', sector: 'Consumer Cyclical', basePrice: 148.75 },
+  { symbol: 'HD', name: 'The Home Depot, Inc.', sector: 'Consumer Cyclical', basePrice: 385.40, description: 'Home improvement retailer selling tools, construction products, and services for home renovation projects.' },
+  { symbol: 'LOW', name: "Lowe's Companies, Inc.", sector: 'Consumer Cyclical', basePrice: 245.90, description: 'Home improvement retailer offering products and services for home decoration, maintenance, and repair.' },
+  { symbol: 'TGT', name: 'Target Corporation', sector: 'Consumer Cyclical', basePrice: 148.75, description: 'General merchandise retailer offering household essentials, apparel, electronics, and groceries.' },
   
   // Industrial
-  { symbol: 'BA', name: 'The Boeing Company', sector: 'Industrials', basePrice: 185.30 },
-  { symbol: 'CAT', name: 'Caterpillar Inc.', sector: 'Industrials', basePrice: 345.60 },
-  { symbol: 'GE', name: 'General Electric Company', sector: 'Industrials', basePrice: 168.90 },
-  { symbol: 'UPS', name: 'United Parcel Service, Inc.', sector: 'Industrials', basePrice: 145.80 },
+  { symbol: 'BA', name: 'The Boeing Company', sector: 'Industrials', basePrice: 185.30, description: 'Aerospace company designing, manufacturing, and selling commercial airplanes, defense systems, and space vehicles.' },
+  { symbol: 'CAT', name: 'Caterpillar Inc.', sector: 'Industrials', basePrice: 345.60, description: 'Heavy equipment manufacturer producing construction and mining machinery, engines, and industrial turbines.' },
+  { symbol: 'GE', name: 'General Electric Company', sector: 'Industrials', basePrice: 168.90, description: 'Industrial conglomerate providing power generation, aviation, healthcare, and renewable energy solutions.' },
+  { symbol: 'UPS', name: 'United Parcel Service, Inc.', sector: 'Industrials', basePrice: 145.80, description: 'Package delivery and supply chain management company providing logistics and transportation services worldwide.' },
   
   // Software & Cloud
-  { symbol: 'CRM', name: 'Salesforce, Inc.', sector: 'Technology', basePrice: 285.40 },
-  { symbol: 'ORCL', name: 'Oracle Corporation', sector: 'Technology', basePrice: 125.60 },
-  { symbol: 'ADBE', name: 'Adobe Inc.', sector: 'Technology', basePrice: 565.80 },
-  { symbol: 'NOW', name: 'ServiceNow, Inc.', sector: 'Technology', basePrice: 785.30 },
-  { symbol: 'SNOW', name: 'Snowflake Inc.', sector: 'Technology', basePrice: 168.45 },
+  { symbol: 'CRM', name: 'Salesforce, Inc.', sector: 'Technology', basePrice: 285.40, description: 'Cloud-based software company providing customer relationship management (CRM) and enterprise applications.' },
+  { symbol: 'ORCL', name: 'Oracle Corporation', sector: 'Technology', basePrice: 125.60, description: 'Enterprise software company offering database management systems, cloud applications, and technology services.' },
+  { symbol: 'ADBE', name: 'Adobe Inc.', sector: 'Technology', basePrice: 565.80, description: 'Software company creating digital media and marketing solutions including Photoshop, Illustrator, and Acrobat.' },
+  { symbol: 'NOW', name: 'ServiceNow, Inc.', sector: 'Technology', basePrice: 785.30, description: 'Cloud computing company providing digital workflow automation and IT service management platforms.' },
+  { symbol: 'SNOW', name: 'Snowflake Inc.', sector: 'Technology', basePrice: 168.45, description: 'Cloud data platform company enabling data storage, processing, and analytics across multiple clouds.' },
   
   // E-commerce & Payments
-  { symbol: 'PYPL', name: 'PayPal Holdings, Inc.', sector: 'Financial Services', basePrice: 62.85 },
-  { symbol: 'SQ', name: 'Block, Inc.', sector: 'Financial Services', basePrice: 78.90 },
-  { symbol: 'SHOP', name: 'Shopify Inc.', sector: 'Technology', basePrice: 85.40 },
+  { symbol: 'PYPL', name: 'PayPal Holdings, Inc.', sector: 'Financial Services', basePrice: 62.85, description: 'Digital payments platform enabling online money transfers and electronic payment services worldwide.' },
+  { symbol: 'SQ', name: 'Block, Inc.', sector: 'Financial Services', basePrice: 78.90, description: 'Financial services and digital payments company providing point-of-sale systems and mobile payment solutions.' },
+  { symbol: 'SHOP', name: 'Shopify Inc.', sector: 'Technology', basePrice: 85.40, description: 'E-commerce platform providing online store creation, payment processing, and business management tools.' },
   
   // Automotive
-  { symbol: 'F', name: 'Ford Motor Company', sector: 'Automotive', basePrice: 12.45 },
-  { symbol: 'GM', name: 'General Motors Company', sector: 'Automotive', basePrice: 38.90 },
-  { symbol: 'RIVN', name: 'Rivian Automotive, Inc.', sector: 'Automotive', basePrice: 18.75 },
+  { symbol: 'F', name: 'Ford Motor Company', sector: 'Automotive', basePrice: 12.45, description: 'Automotive manufacturer designing, producing, and selling cars, trucks, SUVs, and electric vehicles.' },
+  { symbol: 'GM', name: 'General Motors Company', sector: 'Automotive', basePrice: 38.90, description: 'Automotive company manufacturing vehicles under brands including Chevrolet, GMC, Cadillac, and Buick.' },
+  { symbol: 'RIVN', name: 'Rivian Automotive, Inc.', sector: 'Automotive', basePrice: 18.75, description: 'Electric vehicle manufacturer producing electric trucks, SUVs, and delivery vans for consumers and businesses.' },
   
   // Aerospace & Defense
-  { symbol: 'LMT', name: 'Lockheed Martin Corporation', sector: 'Industrials', basePrice: 485.60 },
-  { symbol: 'RTX', name: 'RTX Corporation', sector: 'Industrials', basePrice: 112.30 },
-  { symbol: 'NOC', name: 'Northrop Grumman Corporation', sector: 'Industrials', basePrice: 485.90 },
+  { symbol: 'LMT', name: 'Lockheed Martin Corporation', sector: 'Industrials', basePrice: 485.60, description: 'Aerospace and defense company manufacturing military aircraft, missiles, and advanced technology systems.' },
+  { symbol: 'RTX', name: 'RTX Corporation', sector: 'Industrials', basePrice: 112.30, description: 'Aerospace and defense company producing aircraft engines, avionics, and defense systems.' },
+  { symbol: 'NOC', name: 'Northrop Grumman Corporation', sector: 'Industrials', basePrice: 485.90, description: 'Defense technology company developing aircraft, spacecraft, cybersecurity, and autonomous systems.' },
   
   // Biotech
-  { symbol: 'GILD', name: 'Gilead Sciences, Inc.', sector: 'Healthcare', basePrice: 85.40 },
-  { symbol: 'AMGN', name: 'Amgen Inc.', sector: 'Healthcare', basePrice: 285.60 },
-  { symbol: 'BIIB', name: 'Biogen Inc.', sector: 'Healthcare', basePrice: 225.80 },
-  { symbol: 'MRNA', name: 'Moderna, Inc.', sector: 'Healthcare', basePrice: 68.90 },
+  { symbol: 'GILD', name: 'Gilead Sciences, Inc.', sector: 'Healthcare', basePrice: 85.40, description: 'Biopharmaceutical company researching and developing medicines for life-threatening diseases.' },
+  { symbol: 'AMGN', name: 'Amgen Inc.', sector: 'Healthcare', basePrice: 285.60, description: 'Biotechnology company discovering, developing, and delivering human therapeutics for serious illnesses.' },
+  { symbol: 'BIIB', name: 'Biogen Inc.', sector: 'Healthcare', basePrice: 225.80, description: 'Biotechnology company specializing in therapies for neurological and neurodegenerative diseases.' },
+  { symbol: 'MRNA', name: 'Moderna, Inc.', sector: 'Healthcare', basePrice: 68.90, description: 'Biotechnology company developing messenger RNA therapeutics and vaccines for infectious diseases.' },
   
   // Real Estate
-  { symbol: 'AMT', name: 'American Tower Corporation', sector: 'Real Estate', basePrice: 215.40 },
-  { symbol: 'PLD', name: 'Prologis, Inc.', sector: 'Real Estate', basePrice: 125.80 },
-  { symbol: 'SPG', name: 'Simon Property Group, Inc.', sector: 'Real Estate', basePrice: 168.90 },
+  { symbol: 'AMT', name: 'American Tower Corporation', sector: 'Real Estate', basePrice: 215.40, description: 'Real estate investment trust owning and operating wireless and broadcast communications infrastructure.' },
+  { symbol: 'PLD', name: 'Prologis, Inc.', sector: 'Real Estate', basePrice: 125.80, description: 'Logistics real estate company owning and developing industrial distribution centers and warehouses.' },
+  { symbol: 'SPG', name: 'Simon Property Group, Inc.', sector: 'Real Estate', basePrice: 168.90, description: 'Real estate investment trust owning and managing retail shopping malls and premium outlets.' },
 ];
 
-// Generate stock data dynamically
+// Get company description by symbol
+export const getCompanyDescription = (symbol: string): string => {
+  const stock = allUSStocks.find(s => s.symbol === symbol);
+  return stock?.description || 'No description available.';
+};
+
+// Generate stock data dynamically with daily variation
 const generateStockData = (symbol: string, name: string, basePrice: number): StockData => {
+  // Apply daily variation to base price
+  const dailyVariation = getDailyVariation();
+  const adjustedBasePrice = basePrice * dailyVariation;
+  
   const volatility = 0.02 + Math.random() * 0.02;
-  const historicalData = generateHistoricalData(basePrice, volatility);
+  const historicalData = generateHistoricalData(adjustedBasePrice, volatility);
   const currentPrice = historicalData[historicalData.length - 1].price;
   const previousClose = historicalData[historicalData.length - 2].price;
   const change = currentPrice - previousClose;
@@ -223,92 +234,99 @@ const generateStockData = (symbol: string, name: string, basePrice: number): Sto
   };
 };
 
-export const mockStocks: StockData[] = [
-  {
-    symbol: 'AAPL',
-    name: 'Apple Inc.',
-    currentPrice: 178.45,
-    previousClose: 175.20,
-    change: 3.25,
-    changePercent: 1.85,
-    predictedPrice: 185.30,
-    predictedChange: 6.85,
-    predictedChangePercent: 3.84,
-    confidence: 87,
-    historicalData: generateHistoricalData(175, 0.025),
-    predictionData: generatePredictionData(178.45, 7, 0.015),
-  },
-  {
-    symbol: 'GOOGL',
-    name: 'Alphabet Inc.',
-    currentPrice: 142.80,
-    previousClose: 144.50,
-    change: -1.70,
-    changePercent: -1.18,
-    predictedPrice: 148.20,
-    predictedChange: 5.40,
-    predictedChangePercent: 3.78,
-    confidence: 82,
-    historicalData: generateHistoricalData(140, 0.03),
-    predictionData: generatePredictionData(142.80, 7, 0.012),
-  },
-  {
-    symbol: 'MSFT',
-    name: 'Microsoft Corporation',
-    currentPrice: 412.35,
-    previousClose: 408.90,
-    change: 3.45,
-    changePercent: 0.84,
-    predictedPrice: 425.60,
-    predictedChange: 13.25,
-    predictedChangePercent: 3.21,
-    confidence: 91,
-    historicalData: generateHistoricalData(405, 0.02),
-    predictionData: generatePredictionData(412.35, 7, 0.01),
-  },
-  {
-    symbol: 'TSLA',
-    name: 'Tesla, Inc.',
-    currentPrice: 248.90,
-    previousClose: 252.30,
-    change: -3.40,
-    changePercent: -1.35,
-    predictedPrice: 265.40,
-    predictedChange: 16.50,
-    predictedChangePercent: 6.63,
-    confidence: 75,
-    historicalData: generateHistoricalData(245, 0.04),
-    predictionData: generatePredictionData(248.90, 7, 0.02),
-  },
-  {
-    symbol: 'AMZN',
-    name: 'Amazon.com, Inc.',
-    currentPrice: 178.25,
-    previousClose: 176.80,
-    change: 1.45,
-    changePercent: 0.82,
-    predictedPrice: 186.90,
-    predictedChange: 8.65,
-    predictedChangePercent: 4.85,
-    confidence: 85,
-    historicalData: generateHistoricalData(175, 0.028),
-    predictionData: generatePredictionData(178.25, 7, 0.016),
-  },
-  {
-    symbol: 'NVDA',
-    name: 'NVIDIA Corporation',
-    currentPrice: 875.50,
-    previousClose: 862.40,
-    change: 13.10,
-    changePercent: 1.52,
-    predictedPrice: 920.30,
-    predictedChange: 44.80,
-    predictedChangePercent: 5.12,
-    confidence: 79,
-    historicalData: generateHistoricalData(850, 0.035),
-    predictionData: generatePredictionData(875.50, 7, 0.018),
-  },
-];
+// Generate initial mock stocks with daily variation
+const generateMockStocks = (): StockData[] => {
+  const dailyVariation = getDailyVariation();
+  
+  return [
+    {
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      currentPrice: parseFloat((178.45 * dailyVariation).toFixed(2)),
+      previousClose: parseFloat((175.20 * dailyVariation).toFixed(2)),
+      change: parseFloat((3.25 * dailyVariation).toFixed(2)),
+      changePercent: 1.85,
+      predictedPrice: parseFloat((185.30 * dailyVariation).toFixed(2)),
+      predictedChange: parseFloat((6.85 * dailyVariation).toFixed(2)),
+      predictedChangePercent: 3.84,
+      confidence: 87,
+      historicalData: generateHistoricalData(175 * dailyVariation, 0.025),
+      predictionData: generatePredictionData(178.45 * dailyVariation, 7, 0.015),
+    },
+    {
+      symbol: 'GOOGL',
+      name: 'Alphabet Inc.',
+      currentPrice: parseFloat((142.80 * dailyVariation).toFixed(2)),
+      previousClose: parseFloat((144.50 * dailyVariation).toFixed(2)),
+      change: parseFloat((-1.70 * dailyVariation).toFixed(2)),
+      changePercent: -1.18,
+      predictedPrice: parseFloat((148.20 * dailyVariation).toFixed(2)),
+      predictedChange: parseFloat((5.40 * dailyVariation).toFixed(2)),
+      predictedChangePercent: 3.78,
+      confidence: 82,
+      historicalData: generateHistoricalData(140 * dailyVariation, 0.03),
+      predictionData: generatePredictionData(142.80 * dailyVariation, 7, 0.012),
+    },
+    {
+      symbol: 'MSFT',
+      name: 'Microsoft Corporation',
+      currentPrice: parseFloat((412.35 * dailyVariation).toFixed(2)),
+      previousClose: parseFloat((408.90 * dailyVariation).toFixed(2)),
+      change: parseFloat((3.45 * dailyVariation).toFixed(2)),
+      changePercent: 0.84,
+      predictedPrice: parseFloat((425.60 * dailyVariation).toFixed(2)),
+      predictedChange: parseFloat((13.25 * dailyVariation).toFixed(2)),
+      predictedChangePercent: 3.21,
+      confidence: 91,
+      historicalData: generateHistoricalData(405 * dailyVariation, 0.02),
+      predictionData: generatePredictionData(412.35 * dailyVariation, 7, 0.01),
+    },
+    {
+      symbol: 'TSLA',
+      name: 'Tesla, Inc.',
+      currentPrice: parseFloat((248.90 * dailyVariation).toFixed(2)),
+      previousClose: parseFloat((252.30 * dailyVariation).toFixed(2)),
+      change: parseFloat((-3.40 * dailyVariation).toFixed(2)),
+      changePercent: -1.35,
+      predictedPrice: parseFloat((265.40 * dailyVariation).toFixed(2)),
+      predictedChange: parseFloat((16.50 * dailyVariation).toFixed(2)),
+      predictedChangePercent: 6.63,
+      confidence: 75,
+      historicalData: generateHistoricalData(245 * dailyVariation, 0.04),
+      predictionData: generatePredictionData(248.90 * dailyVariation, 7, 0.02),
+    },
+    {
+      symbol: 'AMZN',
+      name: 'Amazon.com, Inc.',
+      currentPrice: parseFloat((178.25 * dailyVariation).toFixed(2)),
+      previousClose: parseFloat((176.80 * dailyVariation).toFixed(2)),
+      change: parseFloat((1.45 * dailyVariation).toFixed(2)),
+      changePercent: 0.82,
+      predictedPrice: parseFloat((186.90 * dailyVariation).toFixed(2)),
+      predictedChange: parseFloat((8.65 * dailyVariation).toFixed(2)),
+      predictedChangePercent: 4.85,
+      confidence: 85,
+      historicalData: generateHistoricalData(175 * dailyVariation, 0.028),
+      predictionData: generatePredictionData(178.25 * dailyVariation, 7, 0.016),
+    },
+    {
+      symbol: 'NVDA',
+      name: 'NVIDIA Corporation',
+      currentPrice: parseFloat((875.50 * dailyVariation).toFixed(2)),
+      previousClose: parseFloat((862.40 * dailyVariation).toFixed(2)),
+      change: parseFloat((13.10 * dailyVariation).toFixed(2)),
+      changePercent: 1.52,
+      predictedPrice: parseFloat((920.30 * dailyVariation).toFixed(2)),
+      predictedChange: parseFloat((44.80 * dailyVariation).toFixed(2)),
+      predictedChangePercent: 5.12,
+      confidence: 79,
+      historicalData: generateHistoricalData(850 * dailyVariation, 0.035),
+      predictionData: generatePredictionData(875.50 * dailyVariation, 7, 0.018),
+    },
+  ];
+};
+
+export const mockStocks: StockData[] = generateMockStocks();
 
 export const getStockBySymbol = (symbol: string): StockData | undefined => {
   console.log('Getting stock by symbol:', symbol);
