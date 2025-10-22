@@ -108,6 +108,16 @@ export default function HomeScreen() {
           <Text style={styles.title}>Stock Predictions</Text>
           <Text style={styles.subtitle}>AI-powered market insights</Text>
           
+          <View style={styles.sourceContainer}>
+            <View style={styles.sourceHeader}>
+              <IconSymbol name="chart.bar.doc.horizontal" size={16} color={colors.primary} style={styles.sourceIcon} />
+              <Text style={styles.sourceTitle}>Data Source</Text>
+            </View>
+            <Text style={styles.sourceText}>
+              Stock prices are generated using historical market patterns and AI-powered prediction algorithms. Data updates automatically every 24 hours with ±2% daily variation to simulate real market movements.
+            </Text>
+          </View>
+
           <View style={styles.updateContainer}>
             <View style={styles.updateInfo}>
               <IconSymbol name="clock" size={14} color={colors.textSecondary} style={styles.clockIcon} />
@@ -216,7 +226,33 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  sourceContainer: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 14,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  sourceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sourceIcon: {
+    marginRight: 8,
+  },
+  sourceTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  sourceText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   updateContainer: {
     flexDirection: 'row',
