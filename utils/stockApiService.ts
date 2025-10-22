@@ -1,9 +1,9 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Finnhub API configuration
-const FINNHUB_API_KEY = 'ctbvnf9r01qnhvqhqvh0ctbvnf9r01qnhvqhqvhg';
-const FINNHUB_BASE_URL = 'https://finnhub.io/api/v1';
+// Alpha Vantage API configuration
+const ALPHA_VANTAGE_API_KEY = 'd3s4oe1r01qldtrbtf40d3s4oe1r01qldtrbtf4g';
+const ALPHA_VANTAGE_BASE_URL = 'https://www.alphavantage.co/query';
 
 const CACHE_KEY_PREFIX = '@stock_api_cache_';
 const CACHE_DURATION = 60000; // 1 minute cache for real-time data
@@ -49,7 +49,7 @@ const setCachedData = async <T>(key: string, data: T): Promise<void> => {
   }
 };
 
-// Fetch stock quote (current price) using Finnhub
+// Fetch stock quote (current price) using Alpha Vantage
 export const fetchStockQuote = async (symbol: string): Promise<any | null> => {
   try {
     const cacheKey = `quote_${symbol}`;
@@ -57,7 +57,7 @@ export const fetchStockQuote = async (symbol: string): Promise<any | null> => {
     if (cached) return cached;
 
     console.log('🔄 Fetching real-time quote for:', symbol);
-    const url = `${FINNHUB_BASE_URL}/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
+    const url = `${ALPHA_VANTAGE_BASE_URL}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -72,30 +72,54 @@ export const fetchStockQuote = async (symbol: string): Promise<any | null> => {
 
     const data = await response.json();
     
+    // Check for API error messages
+    if (data['Error Message']) {
+      console.error('❌ API Error:', data['Error Message']);
+      return null;
+    }
+
+    if (data['Note']) {
+      console.error('⚠️ API Rate Limit:', data['Note']);
+      return null;
+    }
+
     // Validate data
-    if (!data || !data.c || data.c <= 0) {
+    const quote = data['Global Quote'];
+    if (!quote || !quote['05. price']) {
       console.error('❌ Invalid response format for:', symbol);
       return null;
     }
 
-    const currentPrice = data.c;
-    const previousClose = data.pc;
+    const currentPrice = parseFloat(quote['05. price']);
+    const previousClose = parseFloat(quote['08. previous close']);
+    const change = parseFloat(quote['09. change']);
+    const changePercent = parseFloat(quote['10. change percent'].replace('%', ''));
     
     if (currentPrice <= 0) {
       console.error('❌ Invalid price data for:', symbol, '- Price:', currentPrice);
       return null;
     }
 
+    const formattedData = {
+      c: currentPrice,
+      pc: previousClose,
+      d: change,
+      dp: changePercent,
+      h: parseFloat(quote['03. high']),
+      l: parseFloat(quote['04. low']),
+      o: parseFloat(quote['02. open']),
+    };
+
     console.log('✅ Successfully fetched quote for:', symbol, '- Price: $' + currentPrice.toFixed(2));
-    await setCachedData(cacheKey, data);
-    return data;
+    await setCachedData(cacheKey, formattedData);
+    return formattedData;
   } catch (error) {
     console.error('❌ Error fetching stock quote for', symbol, ':', error);
     return null;
   }
 };
 
-// Fetch company profile using Finnhub
+// Fetch company profile using Alpha Vantage
 export const fetchCompanyProfile = async (symbol: string): Promise<any | null> => {
   try {
     const cacheKey = `profile_${symbol}`;
@@ -103,7 +127,7 @@ export const fetchCompanyProfile = async (symbol: string): Promise<any | null> =
     if (cached) return cached;
 
     console.log('🔄 Fetching company profile for:', symbol);
-    const url = `${FINNHUB_BASE_URL}/stock/profile2?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
+    const url = `${ALPHA_VANTAGE_BASE_URL}?function=OVERVIEW&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -118,22 +142,46 @@ export const fetchCompanyProfile = async (symbol: string): Promise<any | null> =
 
     const data = await response.json();
     
+    // Check for API error messages
+    if (data['Error Message']) {
+      console.error('❌ API Error:', data['Error Message']);
+      return null;
+    }
+
+    if (data['Note']) {
+      console.error('⚠️ API Rate Limit:', data['Note']);
+      return null;
+    }
+    
     // Check if data is valid
-    if (!data || !data.name || Object.keys(data).length === 0) {
+    if (!data || !data.Name || Object.keys(data).length === 0) {
       console.error('❌ Invalid profile data for:', symbol);
       return null;
     }
 
+    const formattedData = {
+      name: data.Name,
+      ticker: data.Symbol,
+      country: data.Country,
+      currency: data.Currency,
+      exchange: data.Exchange,
+      ipo: data.IPODate,
+      marketCapitalization: data.MarketCapitalization,
+      finnhubIndustry: data.Industry,
+      logo: '',
+      weburl: '',
+    };
+
     console.log('✅ Successfully fetched profile for:', symbol);
-    await setCachedData(cacheKey, data);
-    return data;
+    await setCachedData(cacheKey, formattedData);
+    return formattedData;
   } catch (error) {
     console.error('❌ Error fetching company profile for', symbol, ':', error);
     return null;
   }
 };
 
-// Fetch historical candle data using Finnhub
+// Fetch historical candle data using Alpha Vantage
 export const fetchHistoricalData = async (
   symbol: string,
   resolution: 'D' | 'W' | 'M' = 'D',
@@ -146,10 +194,13 @@ export const fetchHistoricalData = async (
 
     console.log('🔄 Fetching historical data for:', symbol, `(${daysBack} days)`);
     
-    const now = Math.floor(Date.now() / 1000);
-    const from = now - (daysBack * 24 * 60 * 60);
+    const functionMap = {
+      'D': 'TIME_SERIES_DAILY',
+      'W': 'TIME_SERIES_WEEKLY',
+      'M': 'TIME_SERIES_MONTHLY',
+    };
     
-    const url = `${FINNHUB_BASE_URL}/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${now}&token=${FINNHUB_API_KEY}`;
+    const url = `${ALPHA_VANTAGE_BASE_URL}?function=${functionMap[resolution]}&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -164,22 +215,58 @@ export const fetchHistoricalData = async (
 
     const data = await response.json();
     
+    // Check for API error messages
+    if (data['Error Message']) {
+      console.error('❌ API Error:', data['Error Message']);
+      return null;
+    }
+
+    if (data['Note']) {
+      console.error('⚠️ API Rate Limit:', data['Note']);
+      return null;
+    }
+
+    const timeSeriesKey = resolution === 'D' ? 'Time Series (Daily)' : 
+                          resolution === 'W' ? 'Weekly Time Series' : 
+                          'Monthly Time Series';
+    
+    const timeSeries = data[timeSeriesKey];
+    
     // Check if data is valid
-    if (!data || data.s !== 'ok' || !data.c || data.c.length === 0) {
+    if (!timeSeries || Object.keys(timeSeries).length === 0) {
       console.error('❌ Invalid historical data for:', symbol);
       return null;
     }
 
-    console.log('✅ Successfully fetched', data.c.length, 'historical data points for:', symbol);
-    await setCachedData(cacheKey, data);
-    return data;
+    // Convert Alpha Vantage format to Finnhub-like format
+    const dates = Object.keys(timeSeries).slice(0, daysBack).reverse();
+    const closes = dates.map(date => parseFloat(timeSeries[date]['4. close']));
+    const opens = dates.map(date => parseFloat(timeSeries[date]['1. open']));
+    const highs = dates.map(date => parseFloat(timeSeries[date]['2. high']));
+    const lows = dates.map(date => parseFloat(timeSeries[date]['3. low']));
+    const volumes = dates.map(date => parseFloat(timeSeries[date]['5. volume']));
+    const timestamps = dates.map(date => Math.floor(new Date(date).getTime() / 1000));
+
+    const formattedData = {
+      s: 'ok',
+      c: closes,
+      o: opens,
+      h: highs,
+      l: lows,
+      v: volumes,
+      t: timestamps,
+    };
+
+    console.log('✅ Successfully fetched', closes.length, 'historical data points for:', symbol);
+    await setCachedData(cacheKey, formattedData);
+    return formattedData;
   } catch (error) {
     console.error('❌ Error fetching historical data for', symbol, ':', error);
     return null;
   }
 };
 
-// Search for stocks using Finnhub
+// Search for stocks using Alpha Vantage
 export const searchStocksAPI = async (query: string): Promise<Array<{ symbol: string; description: string; type: string }>> => {
   try {
     if (!query || query.trim().length === 0) {
@@ -191,7 +278,7 @@ export const searchStocksAPI = async (query: string): Promise<Array<{ symbol: st
     if (cached) return cached;
 
     console.log('🔍 Searching stocks with query:', query);
-    const url = `${FINNHUB_BASE_URL}/search?q=${encodeURIComponent(query)}&token=${FINNHUB_API_KEY}`;
+    const url = `${ALPHA_VANTAGE_BASE_URL}?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(query)}&apikey=${ALPHA_VANTAGE_API_KEY}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -206,18 +293,29 @@ export const searchStocksAPI = async (query: string): Promise<Array<{ symbol: st
 
     const data = await response.json();
     
-    const results = data.result || [];
+    // Check for API error messages
+    if (data['Error Message']) {
+      console.error('❌ API Error:', data['Error Message']);
+      return [];
+    }
+
+    if (data['Note']) {
+      console.error('⚠️ API Rate Limit:', data['Note']);
+      return [];
+    }
+
+    const results = data.bestMatches || [];
     
     // Filter to only US stocks
     const usStocks = results
       .filter((item: any) => 
-        item.type === 'Common Stock' &&
-        !item.symbol.includes('.')
+        item['4. region'] === 'United States' &&
+        item['3. type'] === 'Equity'
       )
       .map((item: any) => ({
-        symbol: item.symbol,
-        description: item.description,
-        type: item.type,
+        symbol: item['1. symbol'],
+        description: item['2. name'],
+        type: item['3. type'],
       }))
       .slice(0, 10);
 
@@ -235,7 +333,7 @@ export const checkAPIAvailability = async (): Promise<boolean> => {
   try {
     console.log('🔍 Checking API availability...');
     const response = await fetch(
-      `${FINNHUB_BASE_URL}/quote?symbol=AAPL&token=${FINNHUB_API_KEY}`,
+      `${ALPHA_VANTAGE_BASE_URL}?function=GLOBAL_QUOTE&symbol=AAPL&apikey=${ALPHA_VANTAGE_API_KEY}`,
       {
         method: 'GET',
         headers: {
@@ -251,10 +349,17 @@ export const checkAPIAvailability = async (): Promise<boolean> => {
 
     const data = await response.json();
     
-    const isValid = data && data.c && data.c > 0;
+    // Check for API error messages
+    if (data['Error Message'] || data['Note']) {
+      console.error('⚠️ API Error or Rate Limit:', data['Error Message'] || data['Note']);
+      return false;
+    }
+
+    const quote = data['Global Quote'];
+    const isValid = quote && quote['05. price'] && parseFloat(quote['05. price']) > 0;
     
     if (isValid) {
-      console.log('✅ API is working correctly - AAPL price: $' + data.c.toFixed(2));
+      console.log('✅ API is working correctly - AAPL price: $' + parseFloat(quote['05. price']).toFixed(2));
     } else {
       console.error('⚠️ API responded but returned invalid data:', data);
     }
@@ -290,13 +395,13 @@ export const getAPIStatus = async (): Promise<{
     return {
       isAvailable: true,
       message: 'API is working correctly',
-      suggestion: 'Real-time stock data is available from Finnhub',
+      suggestion: 'Real-time stock data is available from Alpha Vantage',
     };
   }
   
   return {
     isAvailable: false,
     message: 'Unable to fetch real stock data',
-    suggestion: 'Please check your internet connection and API key. Finnhub free tier has rate limits (60 API calls per minute).',
+    suggestion: 'Please check your internet connection and API key. Alpha Vantage free tier has rate limits (25 API calls per day for free tier).',
   };
 };
