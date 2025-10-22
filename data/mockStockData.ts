@@ -1,6 +1,6 @@
 
 import { StockData, WatchlistItem } from '@/types/stock';
-import { getDailyVariation } from '@/utils/stockUpdateService';
+import { getDailyVariation, getEnhancedDailyVariation } from '@/utils/stockUpdateService';
 
 // Generate mock historical data for the past 30 days
 const generateHistoricalData = (basePrice: number, volatility: number = 0.02) => {
@@ -197,10 +197,14 @@ export const getCompanyDescription = (symbol: string): string => {
   return stock?.description || 'No description available.';
 };
 
-// Generate stock data dynamically with daily variation
-const generateStockData = (symbol: string, name: string, basePrice: number): StockData => {
-  // Apply daily variation to base price
-  const dailyVariation = getDailyVariation();
+// Generate stock data dynamically with enhanced daily variation
+const generateStockData = (symbol: string, name: string, basePrice: number, sector: string): StockData => {
+  // Get stock info for sector
+  const stockInfo = allUSStocks.find(s => s.symbol === symbol);
+  const stockSector = stockInfo?.sector || sector;
+  
+  // Apply enhanced daily variation to base price
+  const dailyVariation = getEnhancedDailyVariation(symbol, stockSector);
   const adjustedBasePrice = basePrice * dailyVariation;
   
   const volatility = 0.02 + Math.random() * 0.02;
@@ -234,96 +238,51 @@ const generateStockData = (symbol: string, name: string, basePrice: number): Sto
   };
 };
 
-// Generate initial mock stocks with daily variation
+// Generate initial mock stocks with enhanced daily variation
 const generateMockStocks = (): StockData[] => {
-  const dailyVariation = getDailyVariation();
-  
-  return [
-    {
-      symbol: 'AAPL',
-      name: 'Apple Inc.',
-      currentPrice: parseFloat((178.45 * dailyVariation).toFixed(2)),
-      previousClose: parseFloat((175.20 * dailyVariation).toFixed(2)),
-      change: parseFloat((3.25 * dailyVariation).toFixed(2)),
-      changePercent: 1.85,
-      predictedPrice: parseFloat((185.30 * dailyVariation).toFixed(2)),
-      predictedChange: parseFloat((6.85 * dailyVariation).toFixed(2)),
-      predictedChangePercent: 3.84,
-      confidence: 87,
-      historicalData: generateHistoricalData(175 * dailyVariation, 0.025),
-      predictionData: generatePredictionData(178.45 * dailyVariation, 7, 0.015),
-    },
-    {
-      symbol: 'GOOGL',
-      name: 'Alphabet Inc.',
-      currentPrice: parseFloat((142.80 * dailyVariation).toFixed(2)),
-      previousClose: parseFloat((144.50 * dailyVariation).toFixed(2)),
-      change: parseFloat((-1.70 * dailyVariation).toFixed(2)),
-      changePercent: -1.18,
-      predictedPrice: parseFloat((148.20 * dailyVariation).toFixed(2)),
-      predictedChange: parseFloat((5.40 * dailyVariation).toFixed(2)),
-      predictedChangePercent: 3.78,
-      confidence: 82,
-      historicalData: generateHistoricalData(140 * dailyVariation, 0.03),
-      predictionData: generatePredictionData(142.80 * dailyVariation, 7, 0.012),
-    },
-    {
-      symbol: 'MSFT',
-      name: 'Microsoft Corporation',
-      currentPrice: parseFloat((412.35 * dailyVariation).toFixed(2)),
-      previousClose: parseFloat((408.90 * dailyVariation).toFixed(2)),
-      change: parseFloat((3.45 * dailyVariation).toFixed(2)),
-      changePercent: 0.84,
-      predictedPrice: parseFloat((425.60 * dailyVariation).toFixed(2)),
-      predictedChange: parseFloat((13.25 * dailyVariation).toFixed(2)),
-      predictedChangePercent: 3.21,
-      confidence: 91,
-      historicalData: generateHistoricalData(405 * dailyVariation, 0.02),
-      predictionData: generatePredictionData(412.35 * dailyVariation, 7, 0.01),
-    },
-    {
-      symbol: 'TSLA',
-      name: 'Tesla, Inc.',
-      currentPrice: parseFloat((248.90 * dailyVariation).toFixed(2)),
-      previousClose: parseFloat((252.30 * dailyVariation).toFixed(2)),
-      change: parseFloat((-3.40 * dailyVariation).toFixed(2)),
-      changePercent: -1.35,
-      predictedPrice: parseFloat((265.40 * dailyVariation).toFixed(2)),
-      predictedChange: parseFloat((16.50 * dailyVariation).toFixed(2)),
-      predictedChangePercent: 6.63,
-      confidence: 75,
-      historicalData: generateHistoricalData(245 * dailyVariation, 0.04),
-      predictionData: generatePredictionData(248.90 * dailyVariation, 7, 0.02),
-    },
-    {
-      symbol: 'AMZN',
-      name: 'Amazon.com, Inc.',
-      currentPrice: parseFloat((178.25 * dailyVariation).toFixed(2)),
-      previousClose: parseFloat((176.80 * dailyVariation).toFixed(2)),
-      change: parseFloat((1.45 * dailyVariation).toFixed(2)),
-      changePercent: 0.82,
-      predictedPrice: parseFloat((186.90 * dailyVariation).toFixed(2)),
-      predictedChange: parseFloat((8.65 * dailyVariation).toFixed(2)),
-      predictedChangePercent: 4.85,
-      confidence: 85,
-      historicalData: generateHistoricalData(175 * dailyVariation, 0.028),
-      predictionData: generatePredictionData(178.25 * dailyVariation, 7, 0.016),
-    },
-    {
-      symbol: 'NVDA',
-      name: 'NVIDIA Corporation',
-      currentPrice: parseFloat((875.50 * dailyVariation).toFixed(2)),
-      previousClose: parseFloat((862.40 * dailyVariation).toFixed(2)),
-      change: parseFloat((13.10 * dailyVariation).toFixed(2)),
-      changePercent: 1.52,
-      predictedPrice: parseFloat((920.30 * dailyVariation).toFixed(2)),
-      predictedChange: parseFloat((44.80 * dailyVariation).toFixed(2)),
-      predictedChangePercent: 5.12,
-      confidence: 79,
-      historicalData: generateHistoricalData(850 * dailyVariation, 0.035),
-      predictionData: generatePredictionData(875.50 * dailyVariation, 7, 0.018),
-    },
+  const topStocks = [
+    { symbol: 'AAPL', name: 'Apple Inc.', basePrice: 178.45, sector: 'Technology' },
+    { symbol: 'GOOGL', name: 'Alphabet Inc.', basePrice: 142.80, sector: 'Technology' },
+    { symbol: 'MSFT', name: 'Microsoft Corporation', basePrice: 412.35, sector: 'Technology' },
+    { symbol: 'TSLA', name: 'Tesla, Inc.', basePrice: 248.90, sector: 'Automotive' },
+    { symbol: 'AMZN', name: 'Amazon.com, Inc.', basePrice: 178.25, sector: 'Consumer Cyclical' },
+    { symbol: 'NVDA', name: 'NVIDIA Corporation', basePrice: 875.50, sector: 'Technology' },
   ];
+  
+  return topStocks.map(stock => {
+    const dailyVariation = getEnhancedDailyVariation(stock.symbol, stock.sector);
+    const adjustedBasePrice = stock.basePrice * dailyVariation;
+    
+    const volatility = stock.sector === 'Technology' ? 0.03 : 0.025;
+    const historicalData = generateHistoricalData(adjustedBasePrice, volatility);
+    const currentPrice = historicalData[historicalData.length - 1].price;
+    const previousClose = historicalData[historicalData.length - 2].price;
+    const change = currentPrice - previousClose;
+    const changePercent = (change / previousClose) * 100;
+    
+    const trend = stock.sector === 'Technology' ? 0.015 : 0.01;
+    const predictionData = generatePredictionData(currentPrice, 7, trend);
+    const predictedPrice = predictionData[predictionData.length - 1].price;
+    const predictedChange = predictedPrice - currentPrice;
+    const predictedChangePercent = (predictedChange / currentPrice) * 100;
+    
+    const confidence = Math.round(75 + Math.random() * 20);
+    
+    return {
+      symbol: stock.symbol,
+      name: stock.name,
+      currentPrice: parseFloat(currentPrice.toFixed(2)),
+      previousClose: parseFloat(previousClose.toFixed(2)),
+      change: parseFloat(change.toFixed(2)),
+      changePercent: parseFloat(changePercent.toFixed(2)),
+      predictedPrice: parseFloat(predictedPrice.toFixed(2)),
+      predictedChange: parseFloat(predictedChange.toFixed(2)),
+      predictedChangePercent: parseFloat(predictedChangePercent.toFixed(2)),
+      confidence,
+      historicalData,
+      predictionData,
+    };
+  });
 };
 
 export const mockStocks: StockData[] = generateMockStocks();
@@ -340,7 +299,7 @@ export const getStockBySymbol = (symbol: string): StockData | undefined => {
   // Otherwise, generate it dynamically from the all stocks list
   const stockInfo = allUSStocks.find(stock => stock.symbol === symbol);
   if (stockInfo) {
-    return generateStockData(stockInfo.symbol, stockInfo.name, stockInfo.basePrice);
+    return generateStockData(stockInfo.symbol, stockInfo.name, stockInfo.basePrice, stockInfo.sector);
   }
   
   return undefined;

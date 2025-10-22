@@ -17,7 +17,7 @@ import {
 import { useRouter } from 'expo-router';
 import StockCard from '@/components/StockCard';
 import { Stack } from 'expo-router';
-import { checkIfNeedsUpdate, markAsUpdated, getLastUpdateTime, forceRefresh } from '@/utils/stockUpdateService';
+import { checkIfNeedsUpdate, markAsUpdated, getLastUpdateTime, forceRefresh, isMarketHours } from '@/utils/stockUpdateService';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -26,10 +26,18 @@ export default function HomeScreen() {
   const [watchlist, setWatchlist] = useState(getWatchlist());
   const [lastUpdate, setLastUpdate] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [marketOpen, setMarketOpen] = useState(isMarketHours());
 
   // Check for updates on mount
   useEffect(() => {
     checkForUpdates();
+    
+    // Check market hours every minute
+    const interval = setInterval(() => {
+      setMarketOpen(isMarketHours());
+    }, 60000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const checkForUpdates = async () => {
@@ -111,11 +119,17 @@ export default function HomeScreen() {
           <View style={styles.sourceContainer}>
             <View style={styles.sourceHeader}>
               <IconSymbol name="chart.bar.doc.horizontal" size={16} color={colors.primary} style={styles.sourceIcon} />
-              <Text style={styles.sourceTitle}>Data Source</Text>
+              <Text style={styles.sourceTitle}>Enhanced Market Simulation</Text>
             </View>
             <Text style={styles.sourceText}>
-              Stock prices are generated using historical market patterns and AI-powered prediction algorithms. Data updates automatically every 24 hours with ±2% daily variation to simulate real market movements.
+              Stock prices use advanced algorithms that simulate real market behavior including sector correlations, volatility patterns, trend persistence, and market sentiment. Data updates daily with realistic price movements based on market hours and trading patterns.
             </Text>
+            <View style={styles.marketStatusContainer}>
+              <View style={[styles.marketStatusDot, { backgroundColor: marketOpen ? colors.success : colors.textSecondary }]} />
+              <Text style={styles.marketStatusText}>
+                Market {marketOpen ? 'Open' : 'Closed'} • Updates every 24 hours
+              </Text>
+            </View>
           </View>
 
           <View style={styles.updateContainer}>
@@ -198,7 +212,7 @@ export default function HomeScreen() {
         <View style={styles.infoBox}>
           <IconSymbol name="info.circle" size={20} color={colors.primary} style={styles.infoIcon} />
           <Text style={styles.infoText}>
-            Stock data updates automatically every day. Tap the refresh button to manually update.
+            Stock prices are simulated using sophisticated algorithms that model real market behavior including volatility, trends, and sector correlations. Tap refresh to update with today&apos;s market simulation.
           </Text>
         </View>
 
@@ -253,6 +267,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 18,
+    marginBottom: 10,
+  },
+  marketStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  marketStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  marketStatusText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   updateContainer: {
     flexDirection: 'row',
