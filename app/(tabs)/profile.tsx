@@ -89,6 +89,83 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.section}>
+            <Text style={styles.sectionTitle}>App Information</Text>
+            
+            <View style={styles.appInfoCard}>
+              <View style={styles.appInfoRow}>
+                <Text style={styles.appInfoLabel}>App Name</Text>
+                <Text style={styles.appInfoValue}>StockBot</Text>
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.appInfoRow}>
+                <Text style={styles.appInfoLabel}>Version</Text>
+                <Text style={styles.appInfoValue}>1.0.0</Text>
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.appInfoRow}>
+                <Text style={styles.appInfoLabel}>Platform</Text>
+                <Text style={styles.appInfoValue}>
+                  {Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : 'Web'}
+                </Text>
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.appInfoRow}>
+                <Text style={styles.appInfoLabel}>Framework</Text>
+                <Text style={styles.appInfoValue}>React Native + Expo</Text>
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.appInfoRowVertical}>
+                <Text style={styles.appInfoLabel}>Description</Text>
+                <Text style={styles.appInfoDescription}>
+                  StockBot is a professional, modern mobile app that predicts future stock data and pricing 
+                  by analyzing past historical stock data. Search for any stock in the US market, view predictions, 
+                  and track your search history.
+                </Text>
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.appInfoRowVertical}>
+                <Text style={styles.appInfoLabel}>Features</Text>
+                <View style={styles.featuresList}>
+                  <View style={styles.featureItem}>
+                    <Text style={styles.featureBullet}>•</Text>
+                    <Text style={styles.featureText}>Predict any US stock with custom date selection</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Text style={styles.featureBullet}>•</Text>
+                    <Text style={styles.featureText}>Real-time stock search with instant suggestions</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Text style={styles.featureBullet}>•</Text>
+                    <Text style={styles.featureText}>View past search history</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Text style={styles.featureBullet}>•</Text>
+                    <Text style={styles.featureText}>Daily automatic stock data updates</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Text style={styles.featureBullet}>•</Text>
+                    <Text style={styles.featureText}>Company descriptions for all stocks</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Text style={styles.featureBullet}>•</Text>
+                    <Text style={styles.featureText}>Interactive charts and visualizations</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
             <Text style={styles.sectionTitle}>Settings</Text>
             
             <Pressable style={styles.settingItem}>
@@ -220,6 +297,63 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   infoText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  appInfoCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.06)',
+    elevation: 1,
+  },
+  appInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  appInfoRowVertical: {
+    paddingVertical: 8,
+  },
+  appInfoLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  appInfoValue: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  appInfoDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.textSecondary + '20',
+    marginVertical: 4,
+  },
+  featuresList: {
+    gap: 8,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  featureBullet: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  featureText: {
+    flex: 1,
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
