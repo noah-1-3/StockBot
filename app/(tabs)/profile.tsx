@@ -13,189 +13,8 @@ import {
   Linking,
 } from 'react-native';
 import { getAPIStatus } from '@/utils/stockApiService';
+import { checkSupabaseConnection } from '@/utils/supabaseStockService';
 import { Stack } from 'expo-router';
-
-export default function ProfileScreen() {
-  const [apiStatus, setApiStatus] = useState<{
-    isAvailable: boolean;
-    message: string;
-    suggestion: string;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadAPIStatus();
-  }, []);
-
-  const loadAPIStatus = async () => {
-    setLoading(true);
-    const status = await getAPIStatus();
-    setApiStatus(status);
-    setLoading(false);
-  };
-
-  const handleOpenFinnhub = () => {
-    Linking.openURL('https://finnhub.io/');
-  };
-
-  const handleOpenDocs = () => {
-    Linking.openURL('https://finnhub.io/docs/api');
-  };
-
-  return (
-    <>
-      <Stack.Screen 
-        options={{
-          title: 'Profile',
-          headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-          },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-        }}
-      />
-      <ScrollView style={styles.container}>
-        <View style={styles.content}>
-          {/* App Info Section */}
-          <View style={styles.section}>
-            <View style={styles.header}>
-              <IconSymbol name="chart.bar.fill" size={32} color={colors.primary} />
-              <Text style={styles.appName}>StockBot</Text>
-            </View>
-            <Text style={styles.appDescription}>
-              Professional stock prediction app powered by real-time market data and advanced analytics.
-            </Text>
-            <Text style={styles.version}>Version 1.0.0</Text>
-          </View>
-
-          {/* API Status Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>API Status</Text>
-            
-            {loading ? (
-              <View style={styles.statusCard}>
-                <Text style={styles.statusText}>Checking API status...</Text>
-              </View>
-            ) : (
-              <View style={[
-                styles.statusCard,
-                apiStatus?.isAvailable ? styles.statusCardSuccess : styles.statusCardError
-              ]}>
-                <View style={styles.statusHeader}>
-                  <IconSymbol 
-                    name={apiStatus?.isAvailable ? "checkmark.circle.fill" : "xmark.circle.fill"} 
-                    size={24} 
-                    color={apiStatus?.isAvailable ? colors.success : colors.error} 
-                  />
-                  <Text style={[
-                    styles.statusTitle,
-                    apiStatus?.isAvailable ? styles.statusTitleSuccess : styles.statusTitleError
-                  ]}>
-                    {apiStatus?.isAvailable ? 'Connected' : 'Disconnected'}
-                  </Text>
-                </View>
-                <Text style={styles.statusMessage}>{apiStatus?.message}</Text>
-                <Text style={styles.statusSuggestion}>{apiStatus?.suggestion}</Text>
-                
-                <Pressable 
-                  style={styles.refreshButton}
-                  onPress={loadAPIStatus}
-                >
-                  <IconSymbol name="arrow.clockwise" size={16} color={colors.primary} />
-                  <Text style={styles.refreshButtonText}>Refresh Status</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-
-          {/* API Info Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Data Provider</Text>
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Provider:</Text>
-                <Text style={styles.infoValue}>Finnhub</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>API Key:</Text>
-                <Text style={styles.infoValue}>ctbvnf9r01qnhvqhqvh0...</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Rate Limit:</Text>
-                <Text style={styles.infoValue}>60 calls/minute</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Data Type:</Text>
-                <Text style={styles.infoValue}>Real-time market data</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Links Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Resources</Text>
-            
-            <Pressable 
-              style={styles.linkButton}
-              onPress={handleOpenFinnhub}
-            >
-              <IconSymbol name="globe" size={20} color={colors.primary} />
-              <Text style={styles.linkButtonText}>Visit Finnhub</Text>
-              <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
-            </Pressable>
-
-            <Pressable 
-              style={styles.linkButton}
-              onPress={handleOpenDocs}
-            >
-              <IconSymbol name="doc.text.fill" size={20} color={colors.primary} />
-              <Text style={styles.linkButtonText}>API Documentation</Text>
-              <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-
-          {/* Features Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Features</Text>
-            <View style={styles.featuresList}>
-              <View style={styles.featureItem}>
-                <IconSymbol name="chart.line.uptrend.xyaxis" size={20} color={colors.success} />
-                <Text style={styles.featureText}>Real-time stock prices</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <IconSymbol name="clock.fill" size={20} color={colors.primary} />
-                <Text style={styles.featureText}>Historical data analysis</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <IconSymbol name="sparkles" size={20} color={colors.warning} />
-                <Text style={styles.featureText}>AI-powered predictions</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <IconSymbol name="magnifyingglass" size={20} color={colors.info} />
-                <Text style={styles.featureText}>Stock search & discovery</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <IconSymbol name="star.fill" size={20} color={colors.warning} />
-                <Text style={styles.featureText}>Personalized watchlist</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              Made with ❤️ for stock market enthusiasts
-            </Text>
-            <Text style={styles.footerSubtext}>
-              Data provided by Finnhub Stock API
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-    </>
-  );
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -204,177 +23,258 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 100,
   },
   section: {
     marginBottom: 30,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  appName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginLeft: 12,
-  },
-  appDescription: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    lineHeight: 24,
-    marginBottom: 8,
-  },
-  version: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '600',
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 12,
+    marginBottom: 15,
   },
-  statusCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: colors.border,
-  },
-  statusCardSuccess: {
-    borderColor: colors.success,
-    backgroundColor: `${colors.success}10`,
-  },
-  statusCardError: {
-    borderColor: colors.error,
-    backgroundColor: `${colors.error}10`,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  statusTitleSuccess: {
-    color: colors.success,
-  },
-  statusTitleError: {
-    color: colors.error,
-  },
-  statusText: {
-    fontSize: 16,
-    color: colors.text,
-  },
-  statusMessage: {
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  statusSuggestion: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: colors.cardBackground,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  refreshButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 6,
-  },
-  infoCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  infoLabel: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  infoValue: {
-    fontSize: 15,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  linkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  card: {
     backgroundColor: colors.cardBackground,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+      web: {
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    }),
   },
-  linkButtonText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginLeft: 12,
-  },
-  featuresList: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  featureItem: {
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    marginBottom: 8,
   },
-  featureText: {
-    fontSize: 15,
+  statusIcon: {
+    marginRight: 12,
+  },
+  statusText: {
+    flex: 1,
+    fontSize: 16,
     color: colors.text,
-    marginLeft: 12,
-    fontWeight: '500',
   },
-  footer: {
-    alignItems: 'center',
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  statusValue: {
+    fontSize: 14,
+    fontWeight: '600',
   },
-  footerText: {
+  statusAvailable: {
+    color: colors.success,
+  },
+  statusUnavailable: {
+    color: colors.error,
+  },
+  messageText: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 4,
+    marginTop: 8,
+    lineHeight: 20,
   },
-  footerSubtext: {
-    fontSize: 12,
+  button: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  infoText: {
+    fontSize: 14,
     color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  badge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
+
+export default function ProfileScreen() {
+  const [apiStatus, setApiStatus] = useState<{
+    isAvailable: boolean;
+    message: string;
+    suggestion: string;
+  } | null>(null);
+  const [supabaseStatus, setSupabaseStatus] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadAPIStatus();
+  }, []);
+
+  const loadAPIStatus = async () => {
+    setLoading(true);
+    try {
+      const [apiResult, supabaseResult] = await Promise.all([
+        getAPIStatus(),
+        checkSupabaseConnection(),
+      ]);
+      setApiStatus(apiResult);
+      setSupabaseStatus(supabaseResult);
+    } catch (error) {
+      console.error('Error loading API status:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenSupabase = () => {
+    Linking.openURL('https://supabase.com/dashboard/project/ajjixvbjxpnqyimuwfan');
+  };
+
+  const handleOpenDocs = () => {
+    Linking.openURL('https://supabase.com/docs');
+  };
+
+  return (
+    <View style={styles.container}>
+      <Stack.Screen 
+        options={{
+          title: 'Profile & Settings',
+          headerStyle: {
+            backgroundColor: colors.background,
+          },
+          headerTintColor: colors.text,
+        }}
+      />
+      <ScrollView style={styles.content}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>App Information</Text>
+          <View style={styles.card}>
+            <View style={styles.statusRow}>
+              <IconSymbol name="chart.line.uptrend.xyaxis" size={24} color={colors.primary} style={styles.statusIcon} />
+              <Text style={styles.statusText}>StockBot</Text>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>v1.0</Text>
+              </View>
+            </View>
+            <Text style={styles.infoText}>
+              AI-powered stock prediction app using historical data and machine learning algorithms.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Data Sources</Text>
+          
+          <View style={styles.card}>
+            <View style={styles.statusRow}>
+              <IconSymbol 
+                name="server.rack" 
+                size={24} 
+                color={supabaseStatus ? colors.success : colors.error} 
+                style={styles.statusIcon} 
+              />
+              <Text style={styles.statusText}>Supabase</Text>
+              <Text style={[
+                styles.statusValue,
+                supabaseStatus ? styles.statusAvailable : styles.statusUnavailable
+              ]}>
+                {loading ? 'Checking...' : supabaseStatus ? 'Connected' : 'Disconnected'}
+              </Text>
+            </View>
+            <Text style={styles.messageText}>
+              {loading 
+                ? 'Checking Supabase connection...' 
+                : supabaseStatus 
+                  ? 'Real-time database and edge functions are active. Stock data is stored and cached in Supabase.'
+                  : 'Unable to connect to Supabase. Please check your internet connection.'}
+            </Text>
+            <Pressable style={styles.button} onPress={handleOpenSupabase}>
+              <Text style={styles.buttonText}>Open Supabase Dashboard</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.statusRow}>
+              <IconSymbol 
+                name="network" 
+                size={24} 
+                color={apiStatus?.isAvailable ? colors.success : colors.error} 
+                style={styles.statusIcon} 
+              />
+              <Text style={styles.statusText}>Alpha Vantage API</Text>
+              <Text style={[
+                styles.statusValue,
+                apiStatus?.isAvailable ? styles.statusAvailable : styles.statusUnavailable
+              ]}>
+                {loading ? 'Checking...' : apiStatus?.isAvailable ? 'Active' : 'Inactive'}
+              </Text>
+            </View>
+            <Text style={styles.messageText}>
+              {loading ? 'Checking API status...' : apiStatus?.message}
+            </Text>
+            {apiStatus?.suggestion && (
+              <Text style={[styles.messageText, { marginTop: 4 }]}>
+                {apiStatus.suggestion}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Features</Text>
+          <View style={styles.card}>
+            <View style={styles.statusRow}>
+              <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} style={styles.statusIcon} />
+              <Text style={styles.statusText}>Real-time Stock Data</Text>
+            </View>
+            <View style={styles.statusRow}>
+              <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} style={styles.statusIcon} />
+              <Text style={styles.statusText}>Historical Analysis</Text>
+            </View>
+            <View style={styles.statusRow}>
+              <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} style={styles.statusIcon} />
+              <Text style={styles.statusText}>Price Predictions</Text>
+            </View>
+            <View style={styles.statusRow}>
+              <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} style={styles.statusIcon} />
+              <Text style={styles.statusText}>Supabase Integration</Text>
+            </View>
+            <View style={styles.statusRow}>
+              <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} style={styles.statusIcon} />
+              <Text style={styles.statusText}>Edge Functions</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Resources</Text>
+          <Pressable style={styles.card} onPress={handleOpenDocs}>
+            <View style={styles.statusRow}>
+              <IconSymbol name="book.fill" size={24} color={colors.primary} style={styles.statusIcon} />
+              <Text style={styles.statusText}>Supabase Documentation</Text>
+              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            </View>
+          </Pressable>
+        </View>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
+  );
+}

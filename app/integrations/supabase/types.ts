@@ -1,3 +1,4 @@
+
 export type Json =
   | string
   | number
@@ -9,7 +10,122 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      stocks: {
+        Row: {
+          id: string
+          symbol: string
+          name: string
+          sector: string | null
+          current_price: number | null
+          change: number | null
+          change_percent: number | null
+          last_updated: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          symbol: string
+          name: string
+          sector?: string | null
+          current_price?: number | null
+          change?: number | null
+          change_percent?: number | null
+          last_updated?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          symbol?: string
+          name?: string
+          sector?: string | null
+          current_price?: number | null
+          change?: number | null
+          change_percent?: number | null
+          last_updated?: string
+          created_at?: string
+        }
+      }
+      stock_history: {
+        Row: {
+          id: string
+          stock_symbol: string
+          date: string
+          open: number
+          high: number
+          low: number
+          close: number
+          volume: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          stock_symbol: string
+          date: string
+          open: number
+          high: number
+          low: number
+          close: number
+          volume?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          stock_symbol?: string
+          date?: string
+          open?: number
+          high?: number
+          low?: number
+          close?: number
+          volume?: number | null
+          created_at?: string
+        }
+      }
+      user_watchlists: {
+        Row: {
+          id: string
+          user_id: string | null
+          stock_symbol: string
+          added_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          stock_symbol: string
+          added_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          stock_symbol?: string
+          added_at?: string
+        }
+      }
+      stock_predictions: {
+        Row: {
+          id: string
+          stock_symbol: string
+          prediction_date: string
+          predicted_price: number
+          confidence: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          stock_symbol: string
+          prediction_date: string
+          predicted_price: number
+          confidence?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          stock_symbol?: string
+          prediction_date?: string
+          predicted_price?: number
+          confidence?: number | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
