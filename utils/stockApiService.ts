@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Finnhub API configuration
 // IMPORTANT: Get your own free API key from https://finnhub.io/
 // The demo key has severe limitations and may not work properly
-const FINNHUB_API_KEY = 'ctbhqj9r01qnhqvvvvs0ctbhqj9r01qnhqvvvvsg'; // Replace with your own key!
+const FINNHUB_API_KEY = 'd3s42o1r01qldtrbr3i0d3s42o1r01qldtrbr3ig'; // Updated with user's API key
 const FINNHUB_BASE_URL = 'https://finnhub.io/api/v1';
 
 const CACHE_KEY_PREFIX = '@stock_api_cache_';
