@@ -1,9 +1,9 @@
 
 import { StockData, WatchlistItem } from '@/types/stock';
 import { getDailyVariation, getEnhancedDailyVariation } from '@/utils/stockUpdateService';
-import { fetchStockQuote, fetchHistoricalData, fetchCompanyProfile, searchStocksAPI } from '@/utils/stockApiService';
+import { fetchStockQuote, fetchHistoricalData, fetchCompanyProfile, searchStocksAPI, checkAPIAvailability } from '@/utils/stockApiService';
 
-// Generate mock historical data for the past 30 days (fallback)
+// Generate mock historical data for the past 30 days (fallback only)
 const generateHistoricalData = (basePrice: number, volatility: number = 0.02) => {
   const data = [];
   let price = basePrice;
@@ -51,7 +51,7 @@ const generatePredictionData = (lastPrice: number, daysAhead: number = 7, trend:
 
 // Generate dynamic prediction for any stock and date
 export const generateDynamicPrediction = (baseStock: StockData, daysAhead: number): StockData => {
-  console.log('Generating dynamic prediction for', baseStock.symbol, 'days ahead:', daysAhead);
+  console.log('🔮 Generating dynamic prediction for', baseStock.symbol, 'days ahead:', daysAhead);
   
   // Calculate trend based on recent historical data
   const recentData = baseStock.historicalData.slice(-10);
@@ -201,7 +201,7 @@ export const getCompanyDescription = (symbol: string): string => {
 // Fetch real stock data from API
 const fetchRealStockData = async (symbol: string, name: string, sector: string): Promise<StockData | null> => {
   try {
-    console.log('Fetching real stock data for:', symbol);
+    console.log('📊 Fetching REAL stock data for:', symbol);
     
     // Fetch quote and historical data in parallel
     const [quote, historicalCandles] = await Promise.all([
@@ -210,7 +210,7 @@ const fetchRealStockData = async (symbol: string, name: string, sector: string):
     ]);
 
     if (!quote || !historicalCandles) {
-      console.log('Failed to fetch real data for:', symbol);
+      console.log('⚠️ Failed to fetch real data for:', symbol, '- Using fallback');
       return null;
     }
 
@@ -242,6 +242,8 @@ const fetchRealStockData = async (symbol: string, name: string, sector: string):
     
     const confidence = Math.round(75 + Math.random() * 20);
 
+    console.log('✅ Successfully fetched REAL data for:', symbol, '- Price:', currentPrice);
+
     return {
       symbol,
       name,
@@ -255,9 +257,10 @@ const fetchRealStockData = async (symbol: string, name: string, sector: string):
       confidence,
       historicalData,
       predictionData,
+      isRealData: true, // Flag to indicate this is real data
     };
   } catch (error) {
-    console.error('Error fetching real stock data:', error);
+    console.error('❌ Error fetching real stock data:', error);
     return null;
   }
 };
@@ -267,12 +270,11 @@ const generateStockData = async (symbol: string, name: string, basePrice: number
   // Try to fetch real data first
   const realData = await fetchRealStockData(symbol, name, sector);
   if (realData) {
-    console.log('Using real stock data for:', symbol);
     return realData;
   }
 
-  // Fallback to mock data if API fails
-  console.log('Using mock data for:', symbol);
+  // Fallback to simulated data if API fails
+  console.log('⚠️ Using SIMULATED data for:', symbol, '(API unavailable)');
   const stockInfo = allUSStocks.find(s => s.symbol === symbol);
   const stockSector = stockInfo?.sector || sector;
   
@@ -308,6 +310,7 @@ const generateStockData = async (symbol: string, name: string, basePrice: number
     confidence,
     historicalData,
     predictionData,
+    isRealData: false, // Flag to indicate this is simulated data
   };
 };
 
@@ -328,12 +331,40 @@ const generateMockStocks = async (): Promise<StockData[]> => {
 
 // Initialize with real data
 let mockStocks: StockData[] = [];
+let apiAvailable: boolean | null = null;
+
+// Check API availability on initialization
+export const checkAPIStatus = async (): Promise<boolean> => {
+  if (apiAvailable === null) {
+    apiAvailable = await checkAPIAvailability();
+    if (!apiAvailable) {
+      console.log('⚠️ ========================================');
+      console.log('⚠️ FINNHUB API IS NOT AVAILABLE');
+      console.log('⚠️ Using simulated stock data');
+      console.log('⚠️ To get real data:');
+      console.log('⚠️ 1. Get a free API key from https://finnhub.io/');
+      console.log('⚠️ 2. Replace the API key in utils/stockApiService.ts');
+      console.log('⚠️ ========================================');
+    } else {
+      console.log('✅ Finnhub API is available - using real stock data');
+    }
+  }
+  return apiAvailable;
+};
 
 // Initialize stocks asynchronously
 export const initializeStocks = async (): Promise<StockData[]> => {
   if (mockStocks.length === 0) {
-    console.log('Initializing stocks with real data...');
+    console.log('🚀 Initializing stocks...');
+    await checkAPIStatus();
     mockStocks = await generateMockStocks();
+    
+    const realDataCount = mockStocks.filter(s => s.isRealData).length;
+    const simulatedCount = mockStocks.length - realDataCount;
+    
+    console.log('📊 Stock initialization complete:');
+    console.log(`   ✅ Real data: ${realDataCount} stocks`);
+    console.log(`   ⚠️ Simulated data: ${simulatedCount} stocks`);
   }
   return mockStocks;
 };
@@ -342,7 +373,7 @@ export const initializeStocks = async (): Promise<StockData[]> => {
 export { mockStocks };
 
 export const getStockBySymbol = async (symbol: string): Promise<StockData | undefined> => {
-  console.log('Getting stock by symbol:', symbol);
+  console.log('🔍 Getting stock by symbol:', symbol);
   
   // First check if it's in the mock stocks
   const mockStock = mockStocks.find(stock => stock.symbol === symbol);
@@ -378,13 +409,13 @@ export const searchStocks = async (query: string, limit: number = 10): Promise<A
   }
   
   const searchTerm = query.toLowerCase().trim();
-  console.log('Searching stocks with query:', searchTerm);
+  console.log('🔍 Searching stocks with query:', searchTerm);
   
   // Try API search first
   try {
     const apiResults = await searchStocksAPI(query);
     if (apiResults.length > 0) {
-      console.log('Using API search results');
+      console.log('✅ Using API search results:', apiResults.length, 'found');
       return apiResults.map(result => ({
         symbol: result.symbol,
         name: result.description,
@@ -392,10 +423,11 @@ export const searchStocks = async (query: string, limit: number = 10): Promise<A
       })).slice(0, limit);
     }
   } catch (error) {
-    console.error('API search failed, falling back to local search:', error);
+    console.error('❌ API search failed, falling back to local search:', error);
   }
   
   // Fallback to local search
+  console.log('⚠️ Using local search (API unavailable)');
   const results = allUSStocks.filter(stock => 
     stock.symbol.toLowerCase().includes(searchTerm) ||
     stock.name.toLowerCase().includes(searchTerm)

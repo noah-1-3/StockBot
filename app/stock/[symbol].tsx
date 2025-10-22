@@ -19,65 +19,64 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 
-export default function StockDetailScreen() {
+const StockDetailScreen = () => {
   const router = useRouter();
-  const { symbol } = useLocalSearchParams();
+  const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const [stock, setStock] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [daysAhead, setDaysAhead] = useState(7);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    loadStockData();
+    if (symbol) {
+      loadStockData();
+    }
   }, [symbol]);
 
   const loadStockData = async () => {
     try {
-      setIsLoading(true);
-      console.log('Loading stock data for:', symbol);
-      const stockData = await getStockBySymbol(symbol as string);
-      
+      setLoading(true);
+      const stockData = await getStockBySymbol(symbol);
       if (stockData) {
         setStock(stockData);
-        console.log('Stock data loaded:', stockData.symbol);
-      } else {
-        console.error('Stock not found:', symbol);
       }
     } catch (error) {
       console.error('Error loading stock data:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleGeneratePrediction = () => {
+  const handleGeneratePrediction = async () => {
     if (!stock) return;
-    
-    const today = new Date();
-    const diffTime = Math.abs(selectedDate.getTime() - today.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    console.log('Generating prediction for', diffDays, 'days ahead');
-    setDaysAhead(diffDays);
-    
-    const updatedStock = generateDynamicPrediction(stock, diffDays);
-    setStock(updatedStock);
-    setShowDatePicker(false);
+
+    try {
+      setGenerating(true);
+      const today = new Date();
+      const daysAhead = Math.ceil((selectedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysAhead <= 0) {
+        alert('Please select a future date');
+        return;
+      }
+
+      const updatedStock = generateDynamicPrediction(stock, daysAhead);
+      setStock(updatedStock);
+      setShowDatePicker(false);
+    } catch (error) {
+      console.error('Error generating prediction:', error);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleDateChange = (event: any, date?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
-    
     if (date) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      if (date > today) {
-        setSelectedDate(date);
-      }
+      setSelectedDate(date);
     }
   };
 
@@ -89,137 +88,121 @@ export default function StockDetailScreen() {
     });
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <>
-        <Stack.Screen 
-          options={{
-            title: 'Loading...',
-            headerShown: true,
-            headerStyle: {
-              backgroundColor: colors.background,
-            },
-            headerTintColor: colors.text,
-            headerShadowVisible: false,
-          }}
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading stock data...</Text>
-        </View>
-      </>
+      <View style={styles.loadingContainer}>
+        <Stack.Screen options={{ title: symbol }} />
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading stock details...</Text>
+      </View>
     );
   }
 
   if (!stock) {
     return (
-      <>
-        <Stack.Screen 
-          options={{
-            title: 'Error',
-            headerShown: true,
-            headerStyle: {
-              backgroundColor: colors.background,
-            },
-            headerTintColor: colors.text,
-            headerShadowVisible: false,
-          }}
-        />
-        <View style={styles.errorContainer}>
-          <IconSymbol name="exclamationmark.triangle" size={48} color={colors.error} />
-          <Text style={styles.errorText}>Stock not found</Text>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Go Back</Text>
-          </Pressable>
-        </View>
-      </>
+      <View style={styles.errorContainer}>
+        <Stack.Screen options={{ title: 'Error' }} />
+        <IconSymbol name="exclamationmark.triangle" size={48} color={colors.error} />
+        <Text style={styles.errorText}>Stock not found</Text>
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </Pressable>
+      </View>
     );
   }
 
+  const isPositive = stock.change >= 0;
+  const isPredictedPositive = stock.predictedChange >= 0;
   const screenWidth = Dimensions.get('window').width;
-  const chartWidth = screenWidth - 40;
 
-  // Combine historical and prediction data for the chart
-  const allData = [...stock.historicalData, ...stock.predictionData];
-  const chartData = {
-    labels: allData
-      .filter((_, index) => index % 5 === 0)
-      .map(point => {
-        const date = new Date(point.date);
-        return `${date.getMonth() + 1}/${date.getDate()}`;
-      }),
-    datasets: [
-      {
-        data: allData.map(point => point.price),
-        color: (opacity = 1) => colors.primary,
-        strokeWidth: 2,
-      },
-    ],
-  };
+  // Combine historical and prediction data for chart
+  const chartData = [
+    ...stock.historicalData.map((d: any) => d.price),
+    ...stock.predictionData.map((d: any) => d.price),
+  ];
 
-  const isPositiveChange = stock.change >= 0;
-  const isPredictionPositive = stock.predictedChange >= 0;
-  const companyDescription = getCompanyDescription(stock.symbol);
+  const chartLabels = [
+    ...stock.historicalData.map((d: any) => d.date.split('-')[2]),
+    ...stock.predictionData.map((d: any) => d.date.split('-')[2]),
+  ];
+
+  const companyDescription = getCompanyDescription(symbol);
 
   return (
-    <>
+    <View style={styles.container}>
       <Stack.Screen 
-        options={{
-          title: stock.symbol,
-          headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-          },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-        }}
+        options={{ 
+          title: symbol,
+          headerBackTitle: 'Back',
+        }} 
       />
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* Stock Header */}
+      
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <View>
+            <View style={styles.titleContainer}>
               <Text style={styles.symbol}>{stock.symbol}</Text>
-              <Text style={styles.name}>{stock.name}</Text>
+              {!stock.isRealData && (
+                <View style={styles.simulatedBadge}>
+                  <Text style={styles.simulatedText}>SIMULATED</Text>
+                </View>
+              )}
             </View>
+            <Text style={styles.name}>{stock.name}</Text>
           </View>
           
           <View style={styles.priceContainer}>
-            <Text style={styles.currentPrice}>${stock.currentPrice.toFixed(2)}</Text>
-            <View style={styles.changeContainer}>
-              <IconSymbol 
-                name={isPositiveChange ? 'arrow.up' : 'arrow.down'} 
-                size={16} 
-                color={isPositiveChange ? colors.success : colors.error} 
+            <Text style={styles.price}>${stock.currentPrice.toFixed(2)}</Text>
+            <View style={[styles.changeContainer, isPositive ? styles.positive : styles.negative]}>
+              <IconSymbol
+                name={isPositive ? 'arrow.up' : 'arrow.down'}
+                size={16}
+                color={isPositive ? colors.success : colors.error}
               />
-              <Text style={[
-                styles.changeText,
-                { color: isPositiveChange ? colors.success : colors.error }
-              ]}>
+              <Text style={[styles.change, isPositive ? styles.positiveText : styles.negativeText]}>
                 ${Math.abs(stock.change).toFixed(2)} ({Math.abs(stock.changePercent).toFixed(2)}%)
               </Text>
             </View>
           </View>
-
-          <View style={styles.dataBadge}>
-            <IconSymbol name="checkmark.circle.fill" size={14} color={colors.success} />
-            <Text style={styles.dataBadgeText}>Real-time data</Text>
-          </View>
         </View>
+
+        {/* Data Source Info */}
+        {stock.isRealData ? (
+          <View style={styles.dataSourceCard}>
+            <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+            <Text style={styles.dataSourceText}>Real-time market data</Text>
+          </View>
+        ) : (
+          <View style={[styles.dataSourceCard, styles.dataSourceWarning]}>
+            <IconSymbol name="exclamationmark.triangle.fill" size={20} color={colors.warning} />
+            <View style={styles.dataSourceTextContainer}>
+              <Text style={styles.dataSourceText}>Simulated data for demonstration</Text>
+              <Text style={styles.dataSourceSubtext}>
+                Get a free API key from finnhub.io for real-time data
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Chart */}
         <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Price History & Prediction</Text>
+          <Text style={styles.sectionTitle}>Price History & Prediction</Text>
           <LineChart
-            data={chartData}
-            width={chartWidth}
+            data={{
+              labels: chartLabels.filter((_, i) => i % 5 === 0),
+              datasets: [{
+                data: chartData,
+              }],
+            }}
+            width={screenWidth - 32}
             height={220}
             chartConfig={{
               backgroundColor: colors.cardBackground,
               backgroundGradientFrom: colors.cardBackground,
               backgroundGradientTo: colors.cardBackground,
               decimalPlaces: 2,
-              color: (opacity = 1) => colors.primary,
+              color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
               labelColor: (opacity = 1) => colors.textSecondary,
               style: {
                 borderRadius: 16,
@@ -227,129 +210,173 @@ export default function StockDetailScreen() {
               propsForDots: {
                 r: '0',
               },
+              propsForBackgroundLines: {
+                strokeDasharray: '',
+                stroke: colors.border,
+                strokeWidth: 1,
+              },
             }}
             bezier
             style={styles.chart}
-            withInnerLines={false}
+            withInnerLines={true}
             withOuterLines={true}
             withVerticalLines={false}
             withHorizontalLines={true}
+            withVerticalLabels={true}
+            withHorizontalLabels={true}
           />
           <View style={styles.chartLegend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-              <Text style={styles.legendText}>Historical</Text>
+              <Text style={styles.legendText}>Historical Data</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: colors.primary, opacity: 0.5 }]} />
-              <Text style={styles.legendText}>Predicted</Text>
+              <Text style={styles.legendText}>AI Prediction</Text>
             </View>
           </View>
         </View>
 
-        {/* Prediction Section */}
-        <View style={styles.predictionContainer}>
+        {/* Prediction Card */}
+        <View style={styles.predictionCard}>
           <View style={styles.predictionHeader}>
-            <Text style={styles.predictionTitle}>AI Prediction</Text>
-            <View style={styles.confidenceBadge}>
-              <Text style={styles.confidenceText}>{stock.confidence}% confidence</Text>
-            </View>
+            <IconSymbol name="brain" size={24} color={colors.primary} />
+            <Text style={styles.sectionTitle}>AI Prediction</Text>
           </View>
           
-          <View style={styles.predictionCard}>
+          <View style={styles.predictionContent}>
             <View style={styles.predictionRow}>
-              <Text style={styles.predictionLabel}>Predicted Price ({daysAhead} days)</Text>
+              <Text style={styles.predictionLabel}>Predicted Price (7 days)</Text>
               <Text style={styles.predictionValue}>${stock.predictedPrice.toFixed(2)}</Text>
             </View>
+            
             <View style={styles.predictionRow}>
               <Text style={styles.predictionLabel}>Expected Change</Text>
-              <View style={styles.predictionChangeContainer}>
-                <IconSymbol 
-                  name={isPredictionPositive ? 'arrow.up' : 'arrow.down'} 
-                  size={16} 
-                  color={isPredictionPositive ? colors.success : colors.error} 
+              <View style={[styles.predictionBadge, isPredictedPositive ? styles.predictionPositive : styles.predictionNegative]}>
+                <IconSymbol
+                  name={isPredictedPositive ? 'arrow.up.right' : 'arrow.down.right'}
+                  size={14}
+                  color={isPredictedPositive ? colors.success : colors.error}
                 />
-                <Text style={[
-                  styles.predictionChangeText,
-                  { color: isPredictionPositive ? colors.success : colors.error }
-                ]}>
-                  ${Math.abs(stock.predictedChange).toFixed(2)} ({Math.abs(stock.predictedChangePercent).toFixed(2)}%)
+                <Text style={[styles.predictionBadgeText, isPredictedPositive ? styles.positiveText : styles.negativeText]}>
+                  {isPredictedPositive ? '+' : ''}{stock.predictedChange.toFixed(2)}%
                 </Text>
+              </View>
+            </View>
+            
+            <View style={styles.predictionRow}>
+              <Text style={styles.predictionLabel}>Confidence</Text>
+              <View style={styles.confidenceContainer}>
+                <View style={styles.confidenceBar}>
+                  <View style={[styles.confidenceFill, { width: `${stock.confidence}%` }]} />
+                </View>
+                <Text style={styles.confidenceText}>{stock.confidence}%</Text>
               </View>
             </View>
           </View>
 
-          <Pressable 
-            style={styles.customPredictionButton}
+          <Pressable
+            style={({ pressed }) => [
+              styles.customPredictionButton,
+              pressed && styles.customPredictionButtonPressed,
+            ]}
             onPress={() => setShowDatePicker(true)}
           >
-            <IconSymbol name="calendar" size={20} color={colors.primary} />
-            <Text style={styles.customPredictionText}>Custom Prediction Date</Text>
+            <IconSymbol name="calendar" size={18} color={colors.primary} />
+            <Text style={styles.customPredictionButtonText}>Custom Date Prediction</Text>
           </Pressable>
         </View>
 
         {/* Company Info */}
-        <View style={styles.companyInfoContainer}>
-          <Text style={styles.companyInfoTitle}>About {stock.name}</Text>
-          <Text style={styles.companyInfoText}>{companyDescription}</Text>
+        <View style={styles.infoCard}>
+          <Text style={styles.sectionTitle}>About {stock.name}</Text>
+          <Text style={styles.infoText}>{companyDescription}</Text>
         </View>
 
-        {/* Date Picker Modal */}
-        <Modal
-          visible={showDatePicker}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setShowDatePicker(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Select Prediction Date</Text>
-                <Pressable onPress={() => setShowDatePicker(false)}>
-                  <IconSymbol name="xmark.circle.fill" size={24} color={colors.textSecondary} />
-                </Pressable>
-              </View>
-              
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleDateChange}
-                minimumDate={new Date()}
-                maximumDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)}
-                textColor={colors.text}
-                themeVariant="dark"
-              />
-              
-              <View style={styles.modalActions}>
-                <Pressable 
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => setShowDatePicker(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </Pressable>
-                <Pressable 
-                  style={[styles.modalButton, styles.confirmButton]}
-                  onPress={handleGeneratePrediction}
-                >
-                  <Text style={styles.confirmButtonText}>Generate Prediction</Text>
-                </Pressable>
-              </View>
+        {/* Stats */}
+        <View style={styles.statsCard}>
+          <Text style={styles.sectionTitle}>Key Statistics</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Open</Text>
+              <Text style={styles.statValue}>${stock.previousClose.toFixed(2)}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Current</Text>
+              <Text style={styles.statValue}>${stock.currentPrice.toFixed(2)}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Day Change</Text>
+              <Text style={[styles.statValue, isPositive ? styles.positiveText : styles.negativeText]}>
+                {isPositive ? '+' : ''}{stock.changePercent.toFixed(2)}%
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>7-Day Forecast</Text>
+              <Text style={[styles.statValue, isPredictedPositive ? styles.positiveText : styles.negativeText]}>
+                {isPredictedPositive ? '+' : ''}{stock.predictedChangePercent.toFixed(2)}%
+              </Text>
             </View>
           </View>
-        </Modal>
+        </View>
       </ScrollView>
-    </>
+
+      {/* Date Picker Modal */}
+      <Modal
+        visible={showDatePicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Prediction Date</Text>
+              <Pressable onPress={() => setShowDatePicker(false)}>
+                <IconSymbol name="xmark.circle.fill" size={24} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+            
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleDateChange}
+              minimumDate={new Date()}
+              maximumDate={new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)}
+              textColor={colors.text}
+            />
+            
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={handleGeneratePrediction}
+                disabled={generating}
+              >
+                {generating ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonTextConfirm}>Generate Prediction</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  content: {
-    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -372,94 +399,152 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    fontWeight: '600',
     color: colors.text,
+    fontWeight: '600',
   },
   backButton: {
-    marginTop: 20,
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: 8,
+    marginTop: 8,
   },
   backButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100,
   },
   header: {
-    padding: 20,
-    gap: 16,
+    marginBottom: 16,
   },
   headerTop: {
+    marginBottom: 12,
+  },
+  titleContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 4,
   },
   symbol: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: colors.text,
   },
+  simulatedBadge: {
+    backgroundColor: colors.warning + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  simulatedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.warning,
+  },
   name: {
-    fontSize: 16,
+    fontSize: 18,
     color: colors.textSecondary,
-    marginTop: 4,
   },
   priceContainer: {
-    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 12,
   },
-  currentPrice: {
-    fontSize: 40,
-    fontWeight: 'bold',
+  price: {
+    fontSize: 36,
+    fontWeight: '700',
     color: colors.text,
   },
   changeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-  },
-  changeText: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  dataBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: colors.successBackground,
-    paddingHorizontal: 12,
+    gap: 4,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
-  dataBadgeText: {
-    fontSize: 12,
+  positive: {
+    backgroundColor: colors.success + '15',
+  },
+  negative: {
+    backgroundColor: colors.error + '15',
+  },
+  change: {
+    fontSize: 15,
     fontWeight: '600',
+  },
+  positiveText: {
     color: colors.success,
   },
-  chartContainer: {
-    padding: 20,
-    gap: 12,
+  negativeText: {
+    color: colors.error,
   },
-  chartTitle: {
-    fontSize: 18,
+  dataSourceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '10',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: colors.success + '30',
+  },
+  dataSourceWarning: {
+    backgroundColor: colors.warning + '10',
+    borderColor: colors.warning + '30',
+  },
+  dataSourceTextContainer: {
+    flex: 1,
+  },
+  dataSourceText: {
+    fontSize: 14,
     fontWeight: '600',
     color: colors.text,
   },
+  dataSourceSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  chartContainer: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
   chart: {
+    marginVertical: 8,
     borderRadius: 16,
   },
   chartLegend: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 24,
+    gap: 20,
     marginTop: 12,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   legendDot: {
     width: 12,
@@ -467,39 +552,26 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   legendText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  predictionContainer: {
-    padding: 20,
-    gap: 16,
-  },
-  predictionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  predictionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  confidenceBadge: {
-    backgroundColor: colors.primary + '20',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  confidenceText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
+    color: colors.textSecondary,
   },
   predictionCard: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  predictionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  predictionContent: {
     gap: 16,
+    marginBottom: 16,
   },
   predictionRow: {
     flexDirection: 'row',
@@ -507,55 +579,118 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   predictionLabel: {
-    fontSize: 16,
+    fontSize: 15,
     color: colors.textSecondary,
   },
   predictionValue: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.text,
   },
-  predictionChangeContainer: {
+  predictionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-  predictionChangeText: {
-    fontSize: 16,
+  predictionPositive: {
+    backgroundColor: colors.success + '10',
+    borderColor: colors.success + '40',
+  },
+  predictionNegative: {
+    backgroundColor: colors.error + '10',
+    borderColor: colors.error + '40',
+  },
+  predictionBadgeText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  confidenceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  confidenceBar: {
+    width: 100,
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  confidenceFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+  },
+  confidenceText: {
+    fontSize: 14,
     fontWeight: '600',
+    color: colors.text,
   },
   customPredictionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: colors.cardBackground,
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: colors.primary + '15',
+    paddingVertical: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.primary + '30',
   },
-  customPredictionText: {
-    fontSize: 16,
+  customPredictionButtonPressed: {
+    opacity: 0.7,
+  },
+  customPredictionButtonText: {
+    fontSize: 15,
     fontWeight: '600',
     color: colors.primary,
   },
-  companyInfoContainer: {
-    margin: 20,
-    padding: 20,
+  infoCard: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  infoText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  statsCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
-  companyInfoTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
+  statItem: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 10,
   },
-  companyInfoText: {
-    fontSize: 14,
+  statLabel: {
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 20,
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
   },
   modalOverlay: {
     flex: 1,
@@ -564,45 +699,49 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: colors.cardBackground,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 20,
-    gap: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 20,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.text,
   },
   modalActions: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 20,
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
   },
-  cancelButton: {
-    backgroundColor: colors.background,
+  modalButtonCancel: {
+    backgroundColor: colors.border,
   },
-  cancelButtonText: {
+  modalButtonConfirm: {
+    backgroundColor: colors.primary,
+  },
+  modalButtonTextCancel: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
   },
-  confirmButton: {
-    backgroundColor: colors.primary,
-  },
-  confirmButtonText: {
+  modalButtonTextConfirm: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#fff',
   },
 });
+
+export default StockDetailScreen;

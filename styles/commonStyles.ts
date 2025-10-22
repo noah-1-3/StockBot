@@ -1,69 +1,53 @@
 
+import { StyleSheet } from 'react-native';
+
 export const colors = {
-  // Primary colors
-  primary: '#007AFF',
-  primaryDark: '#0051D5',
-  
-  // Background colors
-  background: '#000000',
-  cardBackground: '#1C1C1E',
-  
-  // Text colors
-  text: '#FFFFFF',
-  textSecondary: '#8E8E93',
-  
-  // Status colors
-  success: '#34C759',
-  successBackground: '#1C3A28',
-  error: '#FF3B30',
-  errorBackground: '#3A1C1C',
-  warning: '#FF9500',
-  
-  // Border colors
-  border: '#38383A',
-  
-  // Chart colors
-  chartLine: '#007AFF',
-  chartGrid: '#38383A',
+  primary: '#6366F1',
+  secondary: '#8B5CF6',
+  success: '#10B981',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  background: '#0F172A',
+  cardBackground: '#1E293B',
+  text: '#F1F5F9',
+  textSecondary: '#94A3B8',
+  border: '#334155',
 };
 
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-};
-
-export const borderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-};
-
-export const typography = {
-  h1: {
-    fontSize: 32,
-    fontWeight: 'bold' as const,
-    color: colors.text,
+export const commonStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
   },
-  h2: {
+  card: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  title: {
     fontSize: 24,
-    fontWeight: '600' as const,
+    fontWeight: '700',
     color: colors.text,
+    marginBottom: 8,
   },
-  h3: {
-    fontSize: 20,
-    fontWeight: '600' as const,
-    color: colors.text,
-  },
-  body: {
+  subtitle: {
     fontSize: 16,
-    color: colors.text,
-  },
-  caption: {
-    fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: 16,
   },
-};
+  button: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});

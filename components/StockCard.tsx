@@ -1,9 +1,9 @@
 
+import { colors } from '@/styles/commonStyles';
 import React from 'react';
+import { IconSymbol } from './IconSymbol';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
-import { IconSymbol } from './IconSymbol';
 
 interface StockCardProps {
   symbol: string;
@@ -12,146 +12,197 @@ interface StockCardProps {
   change: number;
   changePercent: number;
   predictedChange: number;
+  isRealData?: boolean;
 }
 
-export default function StockCard({
+const StockCard: React.FC<StockCardProps> = ({
   symbol,
   name,
   currentPrice,
   change,
   changePercent,
   predictedChange,
-}: StockCardProps) {
+  isRealData = false,
+}) => {
   const router = useRouter();
   const isPositive = change >= 0;
-  const isPredictionPositive = predictedChange >= 0;
+  const isPredictedPositive = predictedChange >= 0;
 
   const handlePress = () => {
-    console.log('Navigating to stock detail:', symbol);
     router.push(`/stock/${symbol}`);
   };
 
   return (
-    <Pressable onPress={handlePress} style={({ pressed }) => [
-      styles.card,
-      pressed && styles.cardPressed,
-    ]}>
+    <Pressable
+      style={({ pressed }) => [
+        styles.card,
+        pressed && styles.cardPressed,
+      ]}
+      onPress={handlePress}
+    >
       <View style={styles.header}>
-        <View style={styles.symbolContainer}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.primary + '20' }]}>
-            <IconSymbol name="chart.line.uptrend.xyaxis" size={20} color={colors.primary} />
-          </View>
-          <View style={styles.titleContainer}>
-            <Text style={styles.symbol}>{symbol}</Text>
-            <Text style={styles.name} numberOfLines={1}>{name}</Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.symbol}>{symbol}</Text>
+          {!isRealData && (
+            <View style={styles.simulatedBadge}>
+              <Text style={styles.simulatedText}>SIM</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.name} numberOfLines={1}>{name}</Text>
+      </View>
+
+      <View style={styles.content}>
+        <View style={styles.priceSection}>
+          <Text style={styles.price}>${currentPrice.toFixed(2)}</Text>
+          <View style={[styles.changeContainer, isPositive ? styles.positive : styles.negative]}>
+            <IconSymbol
+              name={isPositive ? 'arrow.up' : 'arrow.down'}
+              size={14}
+              color={isPositive ? colors.success : colors.error}
+            />
+            <Text style={[styles.change, isPositive ? styles.positiveText : styles.negativeText]}>
+              ${Math.abs(change).toFixed(2)} ({Math.abs(changePercent).toFixed(2)}%)
+            </Text>
           </View>
         </View>
-        <View style={styles.priceContainer}>
-          <Text style={styles.price}>${currentPrice.toFixed(2)}</Text>
-          <View style={[styles.changeBadge, { backgroundColor: isPositive ? colors.accent + '20' : colors.error + '20' }]}>
-            <Text style={[styles.change, { color: isPositive ? colors.accent : colors.error }]}>
-              {isPositive ? '+' : ''}{change.toFixed(2)} ({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)
+
+        <View style={styles.predictionSection}>
+          <Text style={styles.predictionLabel}>AI Prediction</Text>
+          <View style={[styles.predictionBadge, isPredictedPositive ? styles.predictionPositive : styles.predictionNegative]}>
+            <IconSymbol
+              name={isPredictedPositive ? 'arrow.up.right' : 'arrow.down.right'}
+              size={12}
+              color={isPredictedPositive ? colors.success : colors.error}
+            />
+            <Text style={[styles.predictionText, isPredictedPositive ? styles.positiveText : styles.negativeText]}>
+              {isPredictedPositive ? '+' : ''}{predictedChange.toFixed(2)}%
             </Text>
           </View>
         </View>
       </View>
-      
-      <View style={styles.predictionContainer}>
-        <View style={styles.predictionLabel}>
-          <IconSymbol name="sparkles" size={14} color={colors.highlight} />
-          <Text style={styles.predictionText}>AI Prediction (7d):</Text>
-        </View>
-        <Text style={[styles.predictionValue, { color: isPredictionPositive ? colors.accent : colors.error }]}>
-          {isPredictionPositive ? '+' : ''}{predictedChange.toFixed(2)}
-        </Text>
-      </View>
     </Pressable>
   );
-}
+};
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.cardBackground,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   cardPressed: {
     opacity: 0.7,
     transform: [{ scale: 0.98 }],
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
     marginBottom: 12,
   },
-  symbolContainer: {
+  titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-  },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  titleContainer: {
-    flex: 1,
+    gap: 8,
+    marginBottom: 4,
   },
   symbol: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 2,
+  },
+  simulatedBadge: {
+    backgroundColor: colors.warning + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  simulatedText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.warning,
   },
   name: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
   },
-  priceContainer: {
+  content: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
+  priceSection: {
+    flex: 1,
+  },
   price: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 4,
   },
-  changeBadge: {
+  changeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  positive: {
+    backgroundColor: colors.success + '15',
+  },
+  negative: {
+    backgroundColor: colors.error + '15',
   },
   change: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
-  predictionContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  positiveText: {
+    color: colors.success,
+  },
+  negativeText: {
+    color: colors.error,
+  },
+  predictionSection: {
+    alignItems: 'flex-end',
   },
   predictionLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  predictionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  predictionPositive: {
+    backgroundColor: colors.success + '10',
+    borderColor: colors.success + '40',
+  },
+  predictionNegative: {
+    backgroundColor: colors.error + '10',
+    borderColor: colors.error + '40',
   },
   predictionText: {
     fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  predictionValue: {
-    fontSize: 16,
     fontWeight: '700',
   },
 });
+
+export default StockCard;

@@ -10,13 +10,15 @@ export interface StockData {
   predictedChange: number;
   predictedChangePercent: number;
   confidence: number;
-  historicalData: HistoricalDataPoint[];
-  predictionData: HistoricalDataPoint[];
-}
-
-export interface HistoricalDataPoint {
-  date: string;
-  price: number;
+  historicalData: Array<{
+    date: string;
+    price: number;
+  }>;
+  predictionData: Array<{
+    date: string;
+    price: number;
+  }>;
+  isRealData?: boolean; // Flag to indicate if data is from real API or simulated
 }
 
 export interface WatchlistItem {
